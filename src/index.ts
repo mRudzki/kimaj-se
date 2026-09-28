@@ -2,7 +2,7 @@ import { createApp } from "./app";
 
 const app = createApp();
 const requestedPort = process.env.PORT ? Number(process.env.PORT) : 0;
-const server = Bun.serve({ fetch: app.fetch, port: requestedPort });
+const server = Bun.serve({ fetch: app.fetch, port: requestedPort, hostname: "127.0.0.1" });
 
 console.log(`kimaj-se running at http://localhost:${server.port}`);
 
