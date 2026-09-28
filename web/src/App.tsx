@@ -1,0 +1,44 @@
+import { useState } from "react";
+import type { MonthlySummary } from "@shared/types";
+import { SettingsPage } from "./pages/SettingsPage";
+import { HomePage } from "./pages/HomePage";
+import { MappingPage } from "./pages/MappingPage";
+import { SummaryPage } from "./pages/SummaryPage";
+import { api } from "./api";
+
+type View =
+  | { name: "settings" }
+  | { name: "home" }
+  | { name: "mapping"; month: string; missingMappings: string[] }
+  | { name: "summary"; summary: MonthlySummary };
+
+export function App() {
+  const [view, setView] = useState<View>({ name: "home" });
+
+  if (view.name === "settings") {
+    return <SettingsPage onSaved={() => setView({ name: "home" })} />;
+  }
+  if (view.name === "home") {
+    return (
+      <HomePage
+        onOpenSettings={() => setView({ name: "settings" })}
+        onGenerated={(summary) =>
+          setView(
+            summary.missingMappings.length > 0
+              ? { name: "mapping", month: summary.month, missingMappings: summary.missingMappings }
+              : { name: "summary", summary }
+          )
+        }
+      />
+    );
+  }
+  if (view.name === "mapping") {
+    return (
+      <MappingPage
+        missingMappings={view.missingMappings}
+        onResolved={async () => setView({ name: "summary", summary: await api.generate(view.month) })}
+      />
+    );
+  }
+  return <SummaryPage summary={view.summary} onBack={() => setView({ name: "home" })} />;
+}
