@@ -54,7 +54,14 @@ export async function fetchGithubActivity(
       `https://api.github.com/users/${username}/events?per_page=100&page=${page}`,
       { headers: headers(config) }
     );
-    if (!res.ok) throw new Error(`GitHub events request failed: ${res.status}`);
+    if (!res.ok) {
+      // The first page failing is a real connectivity/auth problem worth surfacing.
+      // A later page failing usually means we've walked past GitHub's undocumented
+      // event retention cap (~300 events) — stop with what we have instead of
+      // failing the whole month's generate.
+      if (page === 1) throw new Error(`GitHub events request failed: ${res.status}`);
+      break;
+    }
     const batch = (await res.json()) as GithubEvent[];
     if (batch.length === 0) break;
 
