@@ -1,7 +1,15 @@
 import type { AppConfig, MappingEntry, MappingStore, MonthlySummary, SubmitResult, SummaryRow } from "@shared/types";
 
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function json<T>(res: Response): Promise<T> {
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  if (!res.ok) throw new ApiError(res.status, `Request failed: ${res.status}`);
   return res.json();
 }
 

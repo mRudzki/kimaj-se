@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { MonthlySummary } from "@shared/types";
-import { api } from "../api";
+import { api, ApiError } from "../api";
 
 function currentMonth(): string {
   const now = new Date();
@@ -24,6 +24,10 @@ export function HomePage({
     try {
       onGenerated(await api.generate(month));
     } catch (err) {
+      if (err instanceof ApiError && err.status === 400) {
+        onOpenSettings();
+        return;
+      }
       setError((err as Error).message);
     } finally {
       setLoading(false);

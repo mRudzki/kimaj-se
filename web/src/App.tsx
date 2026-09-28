@@ -36,7 +36,10 @@ export function App() {
     return (
       <MappingPage
         missingMappings={view.missingMappings}
-        onResolved={async () => setView({ name: "summary", summary: await api.generate(view.month) })}
+        onResolved={async () => {
+          const summary = await api.generate(view.month);
+          setView({ name: "summary", summary });
+        }}
       />
     );
   }

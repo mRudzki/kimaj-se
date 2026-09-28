@@ -6,11 +6,12 @@ export function MappingPage({
   onResolved,
 }: {
   missingMappings: string[];
-  onResolved: () => void;
+  onResolved: () => Promise<void>;
 }) {
   const [options, setOptions] = useState<{ projects: { id: number; name: string }[]; activities: { id: number; name: string }[] } | null>(null);
   const [choices, setChoices] = useState<Record<string, { kimaiProjectId: number; kimaiActivityId: number }>>({});
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api.getKimaiOptions().then(setOptions);
@@ -25,13 +26,16 @@ export function MappingPage({
 
   async function handleSaveAll() {
     setSaving(true);
+    setError(null);
     try {
       for (const projectKey of missingMappings) {
         const choice = choices[projectKey];
         if (!choice?.kimaiProjectId || !choice?.kimaiActivityId) continue;
         await api.saveMappingEntry(projectKey, choice);
       }
-      onResolved();
+      await onResolved();
+    } catch (err) {
+      setError((err as Error).message);
     } finally {
       setSaving(false);
     }
@@ -58,6 +62,7 @@ export function MappingPage({
         </div>
       ))}
       <button onClick={handleSaveAll} disabled={!allChosen || saving}>Zapisz mapowanie i kontynuuj</button>
+      {error && <p role="alert">{error}</p>}
     </div>
   );
 }
