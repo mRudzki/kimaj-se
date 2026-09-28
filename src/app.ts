@@ -1,7 +1,9 @@
 import { Hono } from "hono";
 import { createSettingsRoutes } from "./routes/settingsRoutes";
+import { createMappingRoutes } from "./routes/mappingRoutes";
 import { loadConfig, saveConfig } from "./config";
-import { testKimaiConnection } from "./clients/kimaiClient";
+import { loadMapping, saveMappingEntry } from "./mapping";
+import { testKimaiConnection, fetchKimaiProjects, fetchKimaiActivities } from "./clients/kimaiClient";
 import { testGithubConnection } from "./clients/githubClient";
 import { testJiraConnection } from "./clients/jiraClient";
 
@@ -11,6 +13,10 @@ export function createApp() {
   app.route(
     "/api/settings",
     createSettingsRoutes({ loadConfig, saveConfig, testKimaiConnection, testGithubConnection, testJiraConnection })
+  );
+  app.route(
+    "/api/mapping",
+    createMappingRoutes({ loadMapping, saveMappingEntry, loadConfig, fetchKimaiProjects, fetchKimaiActivities })
   );
   return app;
 }
