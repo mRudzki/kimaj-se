@@ -1,5 +1,8 @@
 import { Hono } from "hono";
 import type { AppConfig, SubmitResult, SummaryRow } from "../shared/types";
+import { localDateTimeToIso } from "../shared/dateUtils";
+
+const DEFAULT_MANUAL_ROW_HOUR = 9; // 09:00 local time for a day with no detected activity
 
 export interface SubmitDeps {
   loadConfig: () => Promise<AppConfig | null>;
@@ -20,14 +23,16 @@ export function createSubmitRoutes(deps: SubmitDeps) {
     const results: SubmitResult[] = [];
     for (const row of rows) {
       if (row.hours <= 0) continue;
-      if (!row.kimaiProjectId || !row.kimaiActivityId || !row.beginIso || !row.endIso) {
+      if (!row.kimaiProjectId || !row.kimaiActivityId) {
         results.push({ date: row.date, projectKey: row.projectKey, success: false, error: "missing_mapping_or_time" });
         continue;
       }
+      const begin = row.beginIso ?? localDateTimeToIso(row.date, DEFAULT_MANUAL_ROW_HOUR, 0);
+      const end = new Date(new Date(begin).getTime() + row.hours * 3600 * 1000).toISOString();
       try {
         await deps.createKimaiTimesheet(config.kimai, {
-          begin: row.beginIso,
-          end: row.endIso,
+          begin,
+          end,
           project: row.kimaiProjectId,
           activity: row.kimaiActivityId,
           description: row.description,

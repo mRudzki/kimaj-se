@@ -63,6 +63,38 @@ describe("submit route", () => {
     ]);
   });
 
+  it("computes end from begin + the row's current hours, ignoring a stale endIso", async () => {
+    let seenEntry: any;
+    const app = buildApp({
+      createKimaiTimesheet: async (_c, entry) => {
+        seenEntry = entry;
+        return { id: 1, begin: entry.begin, end: entry.end, project: 1, activity: 1 };
+      },
+    });
+    // begin/end were generated for 8h, but the user edited hours down to 2 in the UI
+    // without the stale endIso being updated.
+    await post(app, [row({ beginIso: "2026-02-05T08:00:00.000Z", endIso: "2026-02-05T16:00:00.000Z", hours: 2 })]);
+    expect(seenEntry.begin).toBe("2026-02-05T08:00:00.000Z");
+    expect(seenEntry.end).toBe("2026-02-05T10:00:00.000Z");
+  });
+
+  it("gives a manual row (no beginIso) a default 09:00 local start time and submits it", async () => {
+    let seenEntry: any;
+    const app = buildApp({
+      createKimaiTimesheet: async (_c, entry) => {
+        seenEntry = entry;
+        return { id: 1, begin: entry.begin, end: entry.end, project: 1, activity: 1 };
+      },
+    });
+    const { results } = await post(app, [
+      row({ date: "2026-01-05", beginIso: null, endIso: null, hours: 3, status: "manual" }),
+    ]);
+    expect(results).toEqual([{ date: "2026-01-05", projectKey: "github:a/b", success: true }]);
+    // 2026-01-05 09:00 Europe/Warsaw (UTC+1 in January) is 08:00 UTC.
+    expect(seenEntry.begin).toBe("2026-01-05T08:00:00.000Z");
+    expect(seenEntry.end).toBe("2026-01-05T11:00:00.000Z");
+  });
+
   it("continues submitting remaining rows when one row's Kimai call fails", async () => {
     let call = 0;
     const app = buildApp({

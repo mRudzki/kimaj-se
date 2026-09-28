@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { toLocalDateString, eachLocalDateInMonth } from "../../src/shared/dateUtils";
+import { toLocalDateString, eachLocalDateInMonth, localDateTimeToIso } from "../../src/shared/dateUtils";
 
 describe("toLocalDateString", () => {
   it("buckets a late-evening Warsaw timestamp into the correct local day", () => {
@@ -9,6 +9,21 @@ describe("toLocalDateString", () => {
 
   it("keeps a mid-day timestamp on the same day", () => {
     expect(toLocalDateString("2026-01-05T12:00:00Z")).toBe("2026-01-05");
+  });
+});
+
+describe("localDateTimeToIso", () => {
+  it("converts a Warsaw wall-clock time in winter (UTC+1) to the correct UTC instant", () => {
+    expect(localDateTimeToIso("2026-01-05", 9, 0)).toBe("2026-01-05T08:00:00.000Z");
+  });
+
+  it("converts a Warsaw wall-clock time in summer (UTC+2) to the correct UTC instant", () => {
+    expect(localDateTimeToIso("2026-07-05", 9, 0)).toBe("2026-07-05T07:00:00.000Z");
+  });
+
+  it("round-trips back to the same local date via toLocalDateString", () => {
+    const iso = localDateTimeToIso("2026-01-05", 9, 0);
+    expect(toLocalDateString(iso)).toBe("2026-01-05");
   });
 });
 
