@@ -8,7 +8,7 @@
     "dev:web": "vite",
     "build:web": "vite build",
     "build:binary": "bun build --compile --outfile dist/kimaj-se src/index.ts",
-    "build": "bun run build:web && bun run build:binary",
+    "build": "bun run build:web && bun run build:binary && mkdir -p dist/web && cp -R web/dist/. dist/web/",
     "test": "bun test"
   },
   "dependencies": {
