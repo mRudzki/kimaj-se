@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { serveStatic } from "hono/bun";
 import { createSettingsRoutes } from "./routes/settingsRoutes";
 import { createMappingRoutes } from "./routes/mappingRoutes";
 import { createGenerateRoutes } from "./routes/generateRoutes";
@@ -31,5 +32,7 @@ export function createApp() {
     createGenerateRoutes({ loadConfig, loadMapping, fetchGithubActivity, fetchJiraActivity, fetchKimaiTimesheets })
   );
   app.route("/api/submit", createSubmitRoutes({ loadConfig, createKimaiTimesheet }));
+  app.use("/*", serveStatic({ root: "./web/dist" }));
+  app.notFound(async (c) => c.html(await Bun.file("./web/dist/index.html").text()));
   return app;
 }
