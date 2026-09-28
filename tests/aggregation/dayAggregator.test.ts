@@ -54,6 +54,35 @@ describe("aggregateDay", () => {
     expect(total).toBe(8);
   });
 
+  it("never produces a zero-hour block, even when two dominant projects leave a third a tiny share", () => {
+    // a and b each span 5h (equal, dominant weight); c is a single zero-span event.
+    // Naive proportional rounding gives a=4, b=4, c=0 (diff=0, so no correction fires).
+    const blocks = aggregateDay([
+      evt("a", "2026-01-05T08:00:00Z"),
+      evt("a", "2026-01-05T13:00:00Z"),
+      evt("b", "2026-01-05T14:00:00Z"),
+      evt("b", "2026-01-05T19:00:00Z"),
+      evt("c", "2026-01-05T20:00:00Z"),
+    ]);
+    expect(blocks.length).toBe(3);
+    for (const block of blocks) {
+      expect(block.hours).toBeGreaterThan(0);
+    }
+    expect(blocks.reduce((sum, b) => sum + b.hours, 0)).toBe(8);
+  });
+
+  it("sums to exactly 8h for many single-event projects, not 8.5h", () => {
+    const events = Array.from({ length: 9 }, (_, i) =>
+      evt(`p${i}`, `2026-01-05T${String(8 + i).padStart(2, "0")}:00:00Z`)
+    );
+    const blocks = aggregateDay(events);
+    expect(blocks.length).toBe(9);
+    for (const block of blocks) {
+      expect(block.hours).toBeGreaterThan(0);
+    }
+    expect(blocks.reduce((sum, b) => sum + b.hours, 0)).toBe(8);
+  });
+
   it("produces sequential, non-overlapping blocks ordered by first activity", () => {
     const blocks = aggregateDay([
       evt("jira:PROJ", "2026-01-05T15:00:00Z"),
