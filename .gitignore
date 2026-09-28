@@ -1,1 +1,6 @@
 .superpowers/
+node_modules/
+web/dist/
+dist/
+.DS_Store
+*.log
