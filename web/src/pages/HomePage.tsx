@@ -36,18 +36,29 @@ export function HomePage({
 
   return (
     <div>
-      <h1>kimaj-se</h1>
-      <button onClick={onOpenSettings}>Ustawienia</button>
-      <div>
-        <label>
-          Miesiac:
-          <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-        </label>
+      <div className="toolbar" style={{ justifyContent: "space-between" }}>
+        <h1 style={{ margin: 0 }}>kimaj-se</h1>
+        <button className="secondary" onClick={onOpenSettings}>
+          Ustawienia
+        </button>
+      </div>
+
+      <div className="card">
+        <div className="field">
+          <label htmlFor="month">Miesiac</label>
+          <input id="month" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+          <p className="hint">Wybierz miesiac, dla ktorego chcesz uzupelnic czas w Kimai.</p>
+        </div>
         <button onClick={handleGenerate} disabled={loading}>
           {loading ? "Generuje..." : "Generuj"}
         </button>
+        <p className="hint">
+          Pobierze Twoja aktywnosc z GitHub i Jiry za ten miesiac i zbuduje propozycje wpisow czasu do przejrzenia
+          przed wyslaniem. Nic nie trafia do Kimai na tym etapie.
+        </p>
       </div>
-      {error && <p role="alert">{error}</p>}
+
+      {error && <p className="alert" role="alert">{error}</p>}
     </div>
   );
 }

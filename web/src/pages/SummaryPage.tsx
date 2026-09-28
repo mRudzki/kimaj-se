@@ -50,8 +50,16 @@ export function SummaryPage({ summary, onBack }: { summary: MonthlySummary; onBa
 
   return (
     <div>
-      <h1>Podsumowanie {summary.month}</h1>
-      <button onClick={onBack}>Wstecz</button>
+      <div className="toolbar" style={{ justifyContent: "space-between" }}>
+        <h1 style={{ margin: 0 }}>Podsumowanie {summary.month}</h1>
+        <button className="secondary" onClick={onBack}>
+          Wstecz
+        </button>
+      </div>
+      <p className="hint">
+        Popraw projekt, aktywnosc, godziny lub opis dla dowolnego wiersza przed wyslaniem. Dni bez wykrytej
+        aktywnosci maja 0h — uzupelnij je recznie, jesli pracowales.
+      </p>
       <table>
         <thead>
           <tr>
@@ -118,7 +126,15 @@ export function SummaryPage({ summary, onBack }: { summary: MonthlySummary; onBa
                     onChange={(e) => updateRow(i, { description: e.target.value })}
                   />
                 </td>
-                <td>{result ? (result.success ? "Wyslano" : `Blad: ${result.error}`) : row.status}</td>
+                <td>
+                  {result ? (
+                    <span className={result.success ? "status-ok" : "status-fail"}>
+                      {result.success ? "Wyslano" : `Blad: ${result.error}`}
+                    </span>
+                  ) : (
+                    row.status
+                  )}
+                </td>
               </tr>
             );
           })}
@@ -127,6 +143,10 @@ export function SummaryPage({ summary, onBack }: { summary: MonthlySummary; onBa
       <button onClick={handleSubmit} disabled={submitting}>
         {submitting ? "Wysylam..." : "Wyslij do Kimai"}
       </button>
+      <p className="hint">
+        Wysyla tylko wiersze z godzinami &gt; 0, ktore jeszcze nie zostaly pomyslnie zapisane w Kimai — mozesz
+        bezpiecznie kliknac ponownie po poprawieniu bledow.
+      </p>
     </div>
   );
 }

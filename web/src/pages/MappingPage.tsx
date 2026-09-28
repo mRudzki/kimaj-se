@@ -48,21 +48,29 @@ export function MappingPage({
   return (
     <div>
       <h1>Przypisz projekty</h1>
-      {missingMappings.map((projectKey) => (
-        <div key={projectKey}>
-          <span>{projectKey}</span>
-          <select onChange={(e) => setChoice(projectKey, "kimaiProjectId", Number(e.target.value))} defaultValue="">
-            <option value="" disabled>Projekt Kimai</option>
-            {options.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-          <select onChange={(e) => setChoice(projectKey, "kimaiActivityId", Number(e.target.value))} defaultValue="">
-            <option value="" disabled>Aktywnosc Kimai</option>
-            {options.activities.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-        </div>
-      ))}
-      <button onClick={handleSaveAll} disabled={!allChosen || saving}>Zapisz mapowanie i kontynuuj</button>
-      {error && <p role="alert">{error}</p>}
+      <p className="hint">
+        Te repozytoria/projekty nie maja jeszcze przypisanego projektu i aktywnosci w Kimai. Przypisz kazde z nich,
+        zeby kontynuowac. Wybor zapamietamy na przyszlosc.
+      </p>
+      <div className="card">
+        {missingMappings.map((projectKey) => (
+          <div className="mapping-row" key={projectKey}>
+            <span className="project-key">{projectKey}</span>
+            <select onChange={(e) => setChoice(projectKey, "kimaiProjectId", Number(e.target.value))} defaultValue="">
+              <option value="" disabled>Projekt Kimai</option>
+              {options.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <select onChange={(e) => setChoice(projectKey, "kimaiActivityId", Number(e.target.value))} defaultValue="">
+              <option value="" disabled>Aktywnosc Kimai</option>
+              {options.activities.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          </div>
+        ))}
+      </div>
+      <button onClick={handleSaveAll} disabled={!allChosen || saving}>
+        {saving ? "Zapisuje..." : "Zapisz mapowanie i kontynuuj"}
+      </button>
+      {error && <p className="alert" role="alert">{error}</p>}
     </div>
   );
 }
