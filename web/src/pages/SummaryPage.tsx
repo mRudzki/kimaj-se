@@ -96,8 +96,9 @@ export function SummaryPage({ summary, onBack }: { summary: MonthlySummary; onBa
             const locked = result?.success === true;
             const isSkipped = skipped.has(i);
             const disabled = locked || isSkipped;
+            const isZeroHours = row.hours === 0 && !isSkipped;
             return (
-              <tr key={`${row.date}-${row.projectKey ?? "manual"}-${i}`}>
+              <tr key={`${row.date}-${row.projectKey ?? "manual"}-${i}`} className={isZeroHours ? "row-zero-hours" : undefined}>
                 <td>{row.date}</td>
                 <td>
                   <select

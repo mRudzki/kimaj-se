@@ -206,6 +206,14 @@ td {
   vertical-align: middle;
 }
 
+tr.row-zero-hours {
+  background: rgba(249, 112, 102, 0.08);
+}
+
+tr.row-zero-hours td:first-child {
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
 td input,
 td select {
   min-width: 90px;
