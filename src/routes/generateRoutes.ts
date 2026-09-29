@@ -1,6 +1,15 @@
 import { Hono } from "hono";
-import type { ActivityEvent, AppConfig, MappingEntry, MappingStore, MonthlySummary, SummaryRow } from "../shared/types";
+import type {
+  ActivityEvent,
+  AppConfig,
+  MappingEntry,
+  MappingHint,
+  MappingStore,
+  MonthlySummary,
+  SummaryRow,
+} from "../shared/types";
 import { aggregateDay } from "../aggregation/dayAggregator";
+import { remapFigmaEvents } from "../aggregation/figmaMatching";
 import { toLocalDateString, eachLocalDateInMonth, isWeekend } from "../shared/dateUtils";
 
 export interface GenerateDeps {
@@ -8,6 +17,11 @@ export interface GenerateDeps {
   loadMapping: () => Promise<MappingStore>;
   fetchGithubActivity: (c: AppConfig["github"], since: Date, until: Date) => Promise<ActivityEvent[]>;
   fetchJiraActivity: (c: AppConfig["jira"], since: Date, until: Date) => Promise<ActivityEvent[]>;
+  fetchFigmaActivity: (
+    c: NonNullable<AppConfig["figma"]>,
+    since: Date,
+    until: Date
+  ) => Promise<ActivityEvent[]>;
   fetchKimaiTimesheets: (
     c: AppConfig["kimai"],
     since: Date,
@@ -32,6 +46,17 @@ function groupByLocalDay(events: ActivityEvent[]): Map<string, ActivityEvent[]> 
   return map;
 }
 
+function buildHints(events: ActivityEvent[], keys: string[]): Record<string, MappingHint> {
+  const hints: Record<string, MappingHint> = {};
+  for (const key of keys) {
+    const meta = events.find((e) => e.projectKey === key && e.meta)?.meta;
+    if (meta) {
+      hints[key] = { label: `${meta.folderName} / ${meta.fileName}`, folderName: meta.folderName, fileName: meta.fileName };
+    }
+  }
+  return hints;
+}
+
 export function createGenerateRoutes(deps: GenerateDeps) {
   const routes = new Hono();
 
@@ -45,14 +70,27 @@ export function createGenerateRoutes(deps: GenerateDeps) {
     const since = new Date(Date.UTC(year, monthNum - 1, 1) - TIMEZONE_BUFFER_MS);
     const until = new Date(Date.UTC(year, monthNum, 0, 23, 59, 59) + TIMEZONE_BUFFER_MS);
 
-    const [githubEvents, jiraEvents, existingTimesheets] = await Promise.all([
+    const warnings: string[] = [];
+    const figmaConfig =
+      config.figma && config.figma.token && config.figma.teamIds.length > 0 ? config.figma : null;
+    const figmaPromise: Promise<ActivityEvent[]> = figmaConfig
+      ? deps.fetchFigmaActivity(figmaConfig, since, until).catch((err: Error) => {
+          // Figma is optional: a failure must not throw away the GitHub/Jira half of the month.
+          warnings.push(`Nie udalo sie pobrac aktywnosci z Figmy: ${err.message}`);
+          return [];
+        })
+      : Promise.resolve([]);
+
+    const [githubEvents, jiraEvents, figmaEvents, existingTimesheets] = await Promise.all([
       deps.fetchGithubActivity(config.github, since, until),
       deps.fetchJiraActivity(config.jira, since, until),
+      figmaPromise,
       deps.fetchKimaiTimesheets(config.kimai, since, until),
     ]);
 
     const daysWithExistingEntries = new Set(existingTimesheets.map((t) => toLocalDateString(t.begin)));
-    const activeEvents = [...githubEvents, ...jiraEvents].filter((evt) => !isIgnored(mapping[evt.projectKey]));
+    const allEvents = [...githubEvents, ...jiraEvents, ...remapFigmaEvents(figmaEvents, mapping)];
+    const activeEvents = allEvents.filter((evt) => !isIgnored(mapping[evt.projectKey]));
     const eventsByDay = groupByLocalDay(activeEvents);
 
     const missingMappings = new Set<string>();
@@ -99,7 +137,14 @@ export function createGenerateRoutes(deps: GenerateDeps) {
       }
     }
 
-    const summary: MonthlySummary = { month, rows, missingMappings: [...missingMappings] };
+    const missing = [...missingMappings];
+    const summary: MonthlySummary = {
+      month,
+      rows,
+      missingMappings: missing,
+      missingHints: buildHints(activeEvents, missing),
+      warnings,
+    };
     return c.json(summary);
   });
 

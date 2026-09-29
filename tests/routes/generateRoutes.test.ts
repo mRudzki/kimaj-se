@@ -9,6 +9,8 @@ const sampleConfig: AppConfig = {
   jira: { baseUrl: "https://j.test", email: "a@b.com", token: "jt" },
 };
 
+const figmaConfig: AppConfig = { ...sampleConfig, figma: { token: "ft", teamIds: ["team1"] } };
+
 function buildApp(overrides: Partial<Parameters<typeof createGenerateRoutes>[0]> = {}) {
   const app = new Hono();
   app.route(
@@ -18,6 +20,7 @@ function buildApp(overrides: Partial<Parameters<typeof createGenerateRoutes>[0]>
       loadMapping: async () => ({} as MappingStore),
       fetchGithubActivity: async () => [],
       fetchJiraActivity: async () => [],
+      fetchFigmaActivity: async () => [],
       fetchKimaiTimesheets: async () => [],
       ...overrides,
     })
@@ -135,5 +138,94 @@ describe("generate route", () => {
       "2026-02"
     );
     expect(summary.missingMappings).toEqual(["github:a/b"]);
+  });
+  const figmaEvent = (texts: string[] = ["Homepage"]) => ({
+    projectKey: "figma:file:abc",
+    timestamp: "2026-02-05T08:00:00Z",
+    source: "figma" as const,
+    label: "Homepage",
+    meta: { fileName: "Homepage", folderName: "Acme", texts },
+  });
+
+  it("turns Figma activity into rows, reports the file as a missing mapping and provides a readable hint", async () => {
+    const summary = await post(
+      buildApp({ loadConfig: async () => figmaConfig, fetchFigmaActivity: async () => [figmaEvent()] }),
+      "2026-02"
+    );
+    const feb5 = summary.rows.filter((r: any) => r.date === "2026-02-05");
+    expect(feb5.length).toBe(1);
+    expect(feb5[0].projectKey).toBe("figma:file:abc");
+    expect(feb5[0].description).toBe("Homepage");
+    expect(summary.missingMappings).toEqual(["figma:file:abc"]);
+    expect(summary.missingHints["figma:file:abc"]).toEqual({
+      label: "Acme / Homepage",
+      folderName: "Acme",
+      fileName: "Homepage",
+    });
+    expect(summary.warnings).toEqual([]);
+  });
+
+  it("attributes a Figma event to the mapped Jira project when its texts contain that Jira key", async () => {
+    const summary = await post(
+      buildApp({
+        loadConfig: async () => figmaConfig,
+        loadMapping: async () => ({ "jira:PROJ": { kimaiProjectId: 7, kimaiActivityId: 8 } }),
+        fetchFigmaActivity: async () => [figmaEvent(["Homepage", "PROJ-12 handoff"])],
+      }),
+      "2026-02"
+    );
+    const feb5 = summary.rows.filter((r: any) => r.date === "2026-02-05");
+    expect(feb5.length).toBe(1);
+    expect(feb5[0].projectKey).toBe("jira:PROJ");
+    expect(feb5[0].kimaiProjectId).toBe(7);
+    expect(feb5[0].kimaiActivityId).toBe(8);
+    expect(summary.missingMappings).toEqual([]);
+  });
+
+  it("drops Figma activity of an ignored file", async () => {
+    const summary = await post(
+      buildApp({
+        loadConfig: async () => figmaConfig,
+        loadMapping: async () => ({ "figma:file:abc": { ignored: true } }),
+        fetchFigmaActivity: async () => [figmaEvent()],
+      }),
+      "2026-02"
+    );
+    const feb5 = summary.rows.filter((r: any) => r.date === "2026-02-05");
+    expect(feb5.every((r: any) => r.status === "manual")).toBe(true);
+    expect(summary.missingMappings).toEqual([]);
+  });
+
+  it("does not call Figma when it is not configured or has no team ids", async () => {
+    let calls = 0;
+    const fetchFigmaActivity = async () => {
+      calls++;
+      return [];
+    };
+    await post(buildApp({ fetchFigmaActivity }), "2026-02"); // no figma section
+    await post(
+      buildApp({ loadConfig: async () => ({ ...sampleConfig, figma: { token: "ft", teamIds: [] } }), fetchFigmaActivity }),
+      "2026-02"
+    );
+    expect(calls).toBe(0);
+  });
+
+  it("still returns GitHub rows plus a warning when Figma fails", async () => {
+    const summary = await post(
+      buildApp({
+        loadConfig: async () => figmaConfig,
+        fetchGithubActivity: async () => [
+          { projectKey: "github:a/b", timestamp: "2026-02-05T08:00:00Z", source: "github" },
+        ],
+        fetchFigmaActivity: async () => {
+          throw new Error("Figma request /v1/me failed: 429");
+        },
+      }),
+      "2026-02"
+    );
+    expect(summary.rows.some((r: any) => r.projectKey === "github:a/b")).toBe(true);
+    expect(summary.warnings.length).toBe(1);
+    expect(summary.warnings[0]).toContain("Figm");
+    expect(summary.warnings[0]).toContain("429");
   });
 });

@@ -16,6 +16,7 @@ import {
 } from "./clients/kimaiClient";
 import { testGithubConnection, fetchGithubTokenScopes, fetchGithubActivity } from "./clients/githubClient";
 import { testJiraConnection, fetchJiraActivity } from "./clients/jiraClient";
+import { fetchFigmaActivity } from "./clients/figmaClient";
 
 export function createApp() {
   const app = new Hono();
@@ -37,7 +38,14 @@ export function createApp() {
   );
   app.route(
     "/api/generate",
-    createGenerateRoutes({ loadConfig, loadMapping, fetchGithubActivity, fetchJiraActivity, fetchKimaiTimesheets })
+    createGenerateRoutes({
+      loadConfig,
+      loadMapping,
+      fetchGithubActivity,
+      fetchJiraActivity,
+      fetchFigmaActivity,
+      fetchKimaiTimesheets,
+    })
   );
   app.route("/api/submit", createSubmitRoutes({ loadConfig, createKimaiTimesheet }));
   const staticRoot = resolveStaticRoot();
