@@ -1,5 +1,5 @@
 # kimaj-se
-Nie wypełniaj lokalnie Kimai - zamiast tego kimaj se a apka zrobi robotę za ciebie
+### Nie wypełniaj lokalnie Kimai - zamiast tego kimaj se a apka zrobi robotę za ciebie
 Lokalna aplikacja, ktora automatycznie wypelnia timesheet w [Kimai](https://www.kimai.org/) na podstawie Twojej
 aktywnosci na GitHubie i w Jirze. Wybierasz miesiac, dostajesz gotowa propozycje wpisow czasu zbudowana z realnej
 aktywnosci (commity, PR, zmiany statusow w Jirze, komentarze), poprawiasz co trzeba w prostej tabeli i jednym
