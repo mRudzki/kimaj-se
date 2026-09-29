@@ -3,6 +3,7 @@ import type { MonthlySummary } from "@shared/types";
 import { SettingsPage } from "./pages/SettingsPage";
 import { HomePage } from "./pages/HomePage";
 import { MappingPage } from "./pages/MappingPage";
+import { MappingsManagerPage } from "./pages/MappingsManagerPage";
 import { SummaryPage } from "./pages/SummaryPage";
 import { api } from "./api";
 
@@ -10,6 +11,7 @@ type View =
   | { name: "settings" }
   | { name: "home" }
   | { name: "mapping"; month: string; missingMappings: string[] }
+  | { name: "mappingsManager" }
   | { name: "summary"; summary: MonthlySummary };
 
 export function App() {
@@ -22,6 +24,7 @@ export function App() {
     return (
       <HomePage
         onOpenSettings={() => setView({ name: "settings" })}
+        onOpenMappings={() => setView({ name: "mappingsManager" })}
         onGenerated={(summary) =>
           setView(
             summary.missingMappings.length > 0
@@ -31,6 +34,9 @@ export function App() {
         }
       />
     );
+  }
+  if (view.name === "mappingsManager") {
+    return <MappingsManagerPage onBack={() => setView({ name: "home" })} />;
   }
   if (view.name === "mapping") {
     return (

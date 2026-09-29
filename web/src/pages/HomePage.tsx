@@ -9,9 +9,11 @@ function currentMonth(): string {
 
 export function HomePage({
   onOpenSettings,
+  onOpenMappings,
   onGenerated,
 }: {
   onOpenSettings: () => void;
+  onOpenMappings: () => void;
   onGenerated: (summary: MonthlySummary) => void;
 }) {
   const [month, setMonth] = useState(currentMonth());
@@ -38,9 +40,14 @@ export function HomePage({
     <div>
       <div className="toolbar" style={{ justifyContent: "space-between" }}>
         <h1 style={{ margin: 0 }}>kimaj-se</h1>
-        <button className="secondary" onClick={onOpenSettings}>
-          Ustawienia
-        </button>
+        <div className="toolbar">
+          <button className="secondary" onClick={onOpenMappings}>
+            Mapowania
+          </button>
+          <button className="secondary" onClick={onOpenSettings}>
+            Ustawienia
+          </button>
+        </div>
       </div>
 
       <div className="card">
