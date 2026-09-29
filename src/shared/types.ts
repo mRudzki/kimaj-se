@@ -2,6 +2,7 @@ export interface ActivityEvent {
   projectKey: string; // "github:owner/repo" or "jira:PROJECTKEY"
   timestamp: string; // ISO 8601 UTC
   source: "github" | "jira";
+  label?: string; // Jira issue key, or GitHub PR title / branch name
 }
 
 export interface DayBlock {
@@ -9,6 +10,7 @@ export interface DayBlock {
   beginIso: string;
   endIso: string;
   hours: number;
+  description: string;
 }
 
 export interface SummaryRow {

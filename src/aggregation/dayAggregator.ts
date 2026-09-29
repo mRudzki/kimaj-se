@@ -62,11 +62,13 @@ export function aggregateDay(events: ActivityEvent[]): DayBlock[] {
     byProject.set(evt.projectKey, list);
   }
 
-  type Group = { projectKey: string; firstMs: number; weightMs: number };
+  type Group = { projectKey: string; firstMs: number; weightMs: number; description: string };
   const groups: Group[] = [...byProject.entries()].map(([projectKey, evts]) => {
     const timestamps = evts.map((e) => new Date(e.timestamp).getTime()).sort((a, b) => a - b);
     const span = timestamps[timestamps.length - 1] - timestamps[0];
-    return { projectKey, firstMs: timestamps[0], weightMs: Math.max(span, MIN_WEIGHT_MS) };
+    const labels = [...new Set(evts.map((e) => e.label).filter((l): l is string => Boolean(l)))];
+    const description = labels.length > 0 ? labels.join(", ") : projectKey;
+    return { projectKey, firstMs: timestamps[0], weightMs: Math.max(span, MIN_WEIGHT_MS), description };
   });
   groups.sort((a, b) => a.firstMs - b.firstMs);
 
@@ -84,6 +86,7 @@ export function aggregateDay(events: ActivityEvent[]): DayBlock[] {
       beginIso: cursor.toISOString(),
       endIso: end.toISOString(),
       hours,
+      description: groups[i].description,
     });
     cursor = end;
   }

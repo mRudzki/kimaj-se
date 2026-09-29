@@ -93,7 +93,7 @@ export function createGenerateRoutes(deps: GenerateDeps) {
           beginIso: block.beginIso,
           endIso: block.endIso,
           hours: block.hours,
-          description: block.projectKey,
+          description: block.description,
           status: "auto",
         });
       }

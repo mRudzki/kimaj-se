@@ -19,6 +19,7 @@ interface JiraComment {
   created: string;
 }
 interface JiraIssue {
+  key: string;
   fields: {
     project: { key: string };
     created: string;
@@ -91,25 +92,26 @@ export async function fetchJiraActivity(
 
     for (const issue of data.issues) {
       const projectKey = `jira:${issue.fields.project.key}`;
+      const label = issue.key;
 
       if (
         issue.fields.reporter?.accountId === accountId &&
         inRange(issue.fields.created, since, until)
       ) {
-        events.push({ projectKey, timestamp: issue.fields.created, source: "jira" });
+        events.push({ projectKey, timestamp: issue.fields.created, source: "jira", label });
       }
 
       for (const comment of issue.fields.comment?.comments ?? []) {
         if (comment.author.accountId !== accountId) continue;
         if (!inRange(comment.created, since, until)) continue;
-        events.push({ projectKey, timestamp: comment.created, source: "jira" });
+        events.push({ projectKey, timestamp: comment.created, source: "jira", label });
       }
 
       for (const history of issue.changelog?.histories ?? []) {
         if (history.author.accountId !== accountId) continue;
         if (!inRange(history.created, since, until)) continue;
         if (!history.items.some((i) => i.field === "status")) continue;
-        events.push({ projectKey, timestamp: history.created, source: "jira" });
+        events.push({ projectKey, timestamp: history.created, source: "jira", label });
       }
     }
 

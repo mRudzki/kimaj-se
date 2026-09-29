@@ -29,9 +29,19 @@ describe("githubClient", () => {
       if (call === 2) {
         return new Response(
           JSON.stringify([
-            { type: "PushEvent", created_at: "2026-01-10T10:00:00Z", repo: { name: "mRudzki/kimaj-se" } },
+            {
+              type: "PushEvent",
+              created_at: "2026-01-10T10:00:00Z",
+              repo: { name: "mRudzki/kimaj-se" },
+              payload: { ref: "refs/heads/feature-x" },
+            },
             { type: "WatchEvent", created_at: "2026-01-10T09:00:00Z", repo: { name: "mRudzki/kimaj-se" } },
-            { type: "PullRequestEvent", created_at: "2026-01-09T08:00:00Z", repo: { name: "mRudzki/other" } },
+            {
+              type: "PullRequestEvent",
+              created_at: "2026-01-09T08:00:00Z",
+              repo: { name: "mRudzki/other" },
+              payload: { pull_request: { title: "Fix login bug" } },
+            },
           ]),
           { status: 200 }
         );
@@ -42,9 +52,47 @@ describe("githubClient", () => {
     const events = await fetchGithubActivity(config, new Date("2026-01-01T00:00:00Z"), new Date("2026-01-31T23:59:59Z"));
 
     expect(events).toEqual([
-      { projectKey: "github:mRudzki/kimaj-se", timestamp: "2026-01-10T10:00:00Z", source: "github" },
-      { projectKey: "github:mRudzki/other", timestamp: "2026-01-09T08:00:00Z", source: "github" },
+      { projectKey: "github:mRudzki/kimaj-se", timestamp: "2026-01-10T10:00:00Z", source: "github", label: "feature-x" },
+      { projectKey: "github:mRudzki/other", timestamp: "2026-01-09T08:00:00Z", source: "github", label: "Fix login bug" },
     ]);
+  });
+
+  it("extracts a label for every relevant event type: branch name for pushes, PR title otherwise", async () => {
+    let call = 0;
+    globalThis.fetch = (async () => {
+      call++;
+      if (call === 1) return new Response(JSON.stringify({ login: "mRudzki" }), { status: 200 });
+      if (call === 2) {
+        return new Response(
+          JSON.stringify([
+            {
+              type: "PullRequestReviewEvent",
+              created_at: "2026-01-10T10:00:00Z",
+              repo: { name: "a/b" },
+              payload: { pull_request: { title: "Review me" } },
+            },
+            {
+              type: "PullRequestReviewCommentEvent",
+              created_at: "2026-01-10T09:00:00Z",
+              repo: { name: "a/b" },
+              payload: { pull_request: { title: "Add comment" } },
+            },
+            {
+              type: "IssueCommentEvent",
+              created_at: "2026-01-10T08:00:00Z",
+              repo: { name: "a/b" },
+              payload: { issue: { title: "Discuss issue" } },
+            },
+          ]),
+          { status: 200 }
+        );
+      }
+      return new Response("[]", { status: 200 });
+    }) as typeof fetch;
+
+    const events = await fetchGithubActivity(config, new Date("2026-01-01T00:00:00Z"), new Date("2026-01-31T23:59:59Z"));
+
+    expect(events.map((e) => e.label)).toEqual(["Review me", "Add comment", "Discuss issue"]);
   });
 
   it("stops paging once events are older than 'since'", async () => {

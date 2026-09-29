@@ -8,6 +8,11 @@ interface GithubEvent {
   type: string;
   created_at: string;
   repo: { name: string };
+  payload?: {
+    ref?: string;
+    pull_request?: { title?: string };
+    issue?: { title?: string };
+  };
 }
 
 const RELEVANT_EVENT_TYPES = new Set([
@@ -17,6 +22,21 @@ const RELEVANT_EVENT_TYPES = new Set([
   "PullRequestReviewCommentEvent",
   "IssueCommentEvent",
 ]);
+
+function extractLabel(evt: GithubEvent): string | undefined {
+  switch (evt.type) {
+    case "PushEvent":
+      return evt.payload?.ref?.replace(/^refs\/heads\//, "");
+    case "PullRequestEvent":
+    case "PullRequestReviewEvent":
+    case "PullRequestReviewCommentEvent":
+      return evt.payload?.pull_request?.title;
+    case "IssueCommentEvent":
+      return evt.payload?.issue?.title;
+    default:
+      return undefined;
+  }
+}
 
 function headers(config: GithubClientConfig): HeadersInit {
   return {
@@ -91,7 +111,12 @@ export async function fetchGithubActivity(
       }
       if (ts > until) continue;
       if (!RELEVANT_EVENT_TYPES.has(evt.type)) continue;
-      events.push({ projectKey: `github:${evt.repo.name}`, timestamp: evt.created_at, source: "github" });
+      events.push({
+        projectKey: `github:${evt.repo.name}`,
+        timestamp: evt.created_at,
+        source: "github",
+        label: extractLabel(evt),
+      });
     }
     if (reachedTooOld) break;
   }

@@ -33,6 +33,7 @@ describe("jiraClient", () => {
           isLast: true,
           issues: [
             {
+              key: "PROJ-42",
               fields: {
                 project: { key: "PROJ" },
                 created: "2026-01-05T09:00:00.000+0000",
@@ -68,9 +69,9 @@ describe("jiraClient", () => {
     const events = await fetchJiraActivity(config, new Date("2026-01-01T00:00:00Z"), new Date("2026-01-31T23:59:59Z"));
 
     expect(events).toEqual([
-      { projectKey: "jira:PROJ", timestamp: "2026-01-05T09:00:00.000+0000", source: "jira" },
-      { projectKey: "jira:PROJ", timestamp: "2026-01-06T10:00:00.000+0000", source: "jira" },
-      { projectKey: "jira:PROJ", timestamp: "2026-01-07T12:00:00.000+0000", source: "jira" },
+      { projectKey: "jira:PROJ", timestamp: "2026-01-05T09:00:00.000+0000", source: "jira", label: "PROJ-42" },
+      { projectKey: "jira:PROJ", timestamp: "2026-01-06T10:00:00.000+0000", source: "jira", label: "PROJ-42" },
+      { projectKey: "jira:PROJ", timestamp: "2026-01-07T12:00:00.000+0000", source: "jira", label: "PROJ-42" },
     ]);
     // /rest/api/3/search was removed by Atlassian (410 Gone on a live instance);
     // the current endpoint is /rest/api/3/search/jql.

@@ -2,8 +2,8 @@ import { describe, it, expect } from "bun:test";
 import { aggregateDay } from "../../src/aggregation/dayAggregator";
 import type { ActivityEvent } from "../../src/shared/types";
 
-function evt(projectKey: string, timestamp: string): ActivityEvent {
-  return { projectKey, timestamp, source: "github" };
+function evt(projectKey: string, timestamp: string, label?: string): ActivityEvent {
+  return { projectKey, timestamp, source: "github", label };
 }
 
 describe("aggregateDay", () => {
@@ -81,6 +81,20 @@ describe("aggregateDay", () => {
       expect(block.hours).toBeGreaterThan(0);
     }
     expect(blocks.reduce((sum, b) => sum + b.hours, 0)).toBe(8);
+  });
+
+  it("builds a description from the distinct labels seen for a project that day", () => {
+    const blocks = aggregateDay([
+      evt("github:a/b", "2026-01-05T08:00:00Z", "feature-x"),
+      evt("github:a/b", "2026-01-05T09:00:00Z", "Fix login bug"),
+      evt("github:a/b", "2026-01-05T10:00:00Z", "feature-x"), // duplicate label, should not repeat
+    ]);
+    expect(blocks[0].description).toBe("feature-x, Fix login bug");
+  });
+
+  it("falls back to the project key when no event in that block carries a label", () => {
+    const blocks = aggregateDay([evt("github:a/b", "2026-01-05T08:00:00Z")]);
+    expect(blocks[0].description).toBe("github:a/b");
   });
 
   it("produces sequential, non-overlapping blocks ordered by first activity", () => {
