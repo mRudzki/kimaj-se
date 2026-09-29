@@ -95,6 +95,39 @@ describe("githubClient", () => {
     expect(events.map((e) => e.label)).toEqual(["Review me", "Add comment", "Discuss issue"]);
   });
 
+  it("does not use a mainline/environment branch name (main, master, dev, ...) as a push label", async () => {
+    let call = 0;
+    globalThis.fetch = (async () => {
+      call++;
+      if (call === 1) return new Response(JSON.stringify({ login: "mRudzki" }), { status: 200 });
+      if (call === 2) {
+        return new Response(
+          JSON.stringify([
+            { type: "PushEvent", created_at: "2026-01-10T13:00:00Z", repo: { name: "a/b" }, payload: { ref: "refs/heads/main" } },
+            { type: "PushEvent", created_at: "2026-01-10T12:00:00Z", repo: { name: "a/b" }, payload: { ref: "refs/heads/master" } },
+            { type: "PushEvent", created_at: "2026-01-10T11:00:00Z", repo: { name: "a/b" }, payload: { ref: "refs/heads/dev" } },
+            { type: "PushEvent", created_at: "2026-01-10T10:00:00Z", repo: { name: "a/b" }, payload: { ref: "refs/heads/production" } },
+            { type: "PushEvent", created_at: "2026-01-10T09:00:00Z", repo: { name: "a/b" }, payload: { ref: "refs/heads/prod" } },
+            { type: "PushEvent", created_at: "2026-01-10T08:00:00Z", repo: { name: "a/b" }, payload: { ref: "refs/heads/feature-x" } },
+          ]),
+          { status: 200 }
+        );
+      }
+      return new Response("[]", { status: 200 });
+    }) as typeof fetch;
+
+    const events = await fetchGithubActivity(config, new Date("2026-01-01T00:00:00Z"), new Date("2026-01-31T23:59:59Z"));
+
+    expect(events.map((e) => e.label)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      "feature-x",
+    ]);
+  });
+
   it("stops paging once events are older than 'since'", async () => {
     let call = 0;
     globalThis.fetch = (async () => {

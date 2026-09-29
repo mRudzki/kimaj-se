@@ -23,10 +23,17 @@ const RELEVANT_EVENT_TYPES = new Set([
   "IssueCommentEvent",
 ]);
 
+const MAINLINE_BRANCH_NAMES = new Set(["main", "master", "dev", "develop", "staging", "prod", "production"]);
+
 function extractLabel(evt: GithubEvent): string | undefined {
   switch (evt.type) {
-    case "PushEvent":
-      return evt.payload?.ref?.replace(/^refs\/heads\//, "");
+    case "PushEvent": {
+      const branch = evt.payload?.ref?.replace(/^refs\/heads\//, "");
+      // A push straight to a mainline/environment branch doesn't describe the
+      // work — only a feature branch name is worth showing in the summary.
+      if (branch && MAINLINE_BRANCH_NAMES.has(branch.toLowerCase())) return undefined;
+      return branch;
+    }
     case "PullRequestEvent":
     case "PullRequestReviewEvent":
     case "PullRequestReviewCommentEvent":
