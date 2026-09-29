@@ -34,6 +34,22 @@ export function localDateTimeToIso(dateStr: string, hour: number, minute: number
   return new Date(guessUtcMs - offsetMs).toISOString();
 }
 
+export function toLocalDateTimeString(isoTimestamp: string, timeZone = "Europe/Warsaw"): string {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const parts = formatter.formatToParts(new Date(isoTimestamp));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value;
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}`;
+}
+
 export function eachLocalDateInMonth(month: string): string[] {
   const [year, monthNum] = month.split("-").map(Number);
   const daysInMonth = new Date(Date.UTC(year, monthNum, 0)).getUTCDate();

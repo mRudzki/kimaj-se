@@ -21,14 +21,16 @@ describe("jiraClient", () => {
 
   it("fetchJiraActivity extracts creation, status changes, and comments by the current user", async () => {
     let call = 0;
-    globalThis.fetch = (async () => {
+    let seenUrl = "";
+    globalThis.fetch = (async (url: string) => {
       call++;
       if (call === 1) {
         return new Response(JSON.stringify({ accountId: "acc-1" }), { status: 200 });
       }
+      seenUrl = url;
       return new Response(
         JSON.stringify({
-          total: 1,
+          isLast: true,
           issues: [
             {
               fields: {
@@ -70,5 +72,58 @@ describe("jiraClient", () => {
       { projectKey: "jira:PROJ", timestamp: "2026-01-06T10:00:00.000+0000", source: "jira" },
       { projectKey: "jira:PROJ", timestamp: "2026-01-07T12:00:00.000+0000", source: "jira" },
     ]);
+    // /rest/api/3/search was removed by Atlassian (410 Gone on a live instance);
+    // the current endpoint is /rest/api/3/search/jql.
+    expect(seenUrl).toContain("/rest/api/3/search/jql?");
+    expect(seenUrl).not.toContain("/rest/api/3/search?");
+  });
+
+  it("paginates using nextPageToken until isLast is true (the old total/startAt scheme is gone)", async () => {
+    let call = 0;
+    const seenUrls: string[] = [];
+    globalThis.fetch = (async (url: string) => {
+      call++;
+      if (call === 1) return new Response(JSON.stringify({ accountId: "acc-1" }), { status: 200 });
+      seenUrls.push(url);
+      if (call === 2) {
+        return new Response(
+          JSON.stringify({
+            isLast: false,
+            nextPageToken: "token-page-2",
+            issues: [
+              {
+                fields: {
+                  project: { key: "A" },
+                  created: "2026-01-05T09:00:00.000+0000",
+                  reporter: { accountId: "acc-1" },
+                },
+              },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          isLast: true,
+          issues: [
+            {
+              fields: {
+                project: { key: "B" },
+                created: "2026-01-06T09:00:00.000+0000",
+                reporter: { accountId: "acc-1" },
+              },
+            },
+          ],
+        }),
+        { status: 200 }
+      );
+    }) as typeof fetch;
+
+    const events = await fetchJiraActivity(config, new Date("2026-01-01T00:00:00Z"), new Date("2026-01-31T23:59:59Z"));
+
+    expect(events.map((e) => e.projectKey)).toEqual(["jira:A", "jira:B"]);
+    expect(call).toBe(3); // myself, page 1, page 2
+    expect(seenUrls[1]).toContain("nextPageToken=token-page-2");
   });
 });

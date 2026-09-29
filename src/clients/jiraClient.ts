@@ -28,8 +28,9 @@ interface JiraIssue {
   changelog?: { histories: JiraChangelogHistory[] };
 }
 interface JiraSearchResponse {
-  total: number;
   issues: JiraIssue[];
+  isLast: boolean;
+  nextPageToken?: string;
 }
 
 function headers(config: JiraClientConfig): HeadersInit {
@@ -74,12 +75,16 @@ export async function fetchJiraActivity(
   const jql = `(reporter = currentUser() OR assignee = currentUser()) AND updated >= "${jiraDate(since)}" AND updated <= "${jiraDate(until)}"`;
   const events: ActivityEvent[] = [];
 
-  let startAt = 0;
   const maxResults = 50;
+  let nextPageToken: string | undefined;
   while (true) {
+    // Jira Cloud removed /rest/api/3/search (returns 410 Gone) in favor of
+    // /rest/api/3/search/jql, which pages with an opaque nextPageToken
+    // instead of startAt/total (confirmed against a live instance).
+    const pageParam = nextPageToken ? `&nextPageToken=${encodeURIComponent(nextPageToken)}` : "";
     const url =
-      `${config.baseUrl}/rest/api/3/search?jql=${encodeURIComponent(jql)}` +
-      `&expand=changelog&fields=project,created,reporter,comment&startAt=${startAt}&maxResults=${maxResults}`;
+      `${config.baseUrl}/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}` +
+      `&expand=changelog&fields=project,created,reporter,comment&maxResults=${maxResults}${pageParam}`;
     const res = await fetch(url, { headers: headers(config) });
     if (!res.ok) throw new Error(`Jira search request failed: ${res.status}`);
     const data = (await res.json()) as JiraSearchResponse;
@@ -108,8 +113,8 @@ export async function fetchJiraActivity(
       }
     }
 
-    startAt += data.issues.length;
-    if (data.issues.length === 0 || startAt >= data.total) break;
+    if (data.isLast || !data.nextPageToken) break;
+    nextPageToken = data.nextPageToken;
   }
 
   events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());

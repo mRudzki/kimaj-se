@@ -1,5 +1,10 @@
 import { describe, it, expect } from "bun:test";
-import { toLocalDateString, eachLocalDateInMonth, localDateTimeToIso } from "../../src/shared/dateUtils";
+import {
+  toLocalDateString,
+  eachLocalDateInMonth,
+  localDateTimeToIso,
+  toLocalDateTimeString,
+} from "../../src/shared/dateUtils";
 
 describe("toLocalDateString", () => {
   it("buckets a late-evening Warsaw timestamp into the correct local day", () => {
@@ -24,6 +29,23 @@ describe("localDateTimeToIso", () => {
   it("round-trips back to the same local date via toLocalDateString", () => {
     const iso = localDateTimeToIso("2026-01-05", 9, 0);
     expect(toLocalDateString(iso)).toBe("2026-01-05");
+  });
+});
+
+describe("toLocalDateTimeString", () => {
+  it("formats a UTC instant as a naive Warsaw wall-clock string in winter (UTC+1)", () => {
+    // Kimai's API rejects a trailing Z/offset and interprets a naive string as
+    // the user's own Kimai timezone, so this must be a plain "no zone" string.
+    expect(toLocalDateTimeString("2026-01-05T08:00:00.000Z")).toBe("2026-01-05T09:00:00");
+  });
+
+  it("formats a UTC instant as a naive Warsaw wall-clock string in summer (UTC+2)", () => {
+    expect(toLocalDateTimeString("2026-07-05T07:00:00.000Z")).toBe("2026-07-05T09:00:00");
+  });
+
+  it("round-trips with localDateTimeToIso", () => {
+    const iso = localDateTimeToIso("2026-03-10", 14, 30);
+    expect(toLocalDateTimeString(iso)).toBe("2026-03-10T14:30:00");
   });
 });
 

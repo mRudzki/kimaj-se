@@ -1,3 +1,5 @@
+import { toLocalDateTimeString } from "../shared/dateUtils";
+
 export interface KimaiClientConfig {
   baseUrl: string;
   token: string;
@@ -51,7 +53,9 @@ export async function fetchKimaiTimesheets(
   begin: Date,
   end: Date
 ): Promise<KimaiTimesheet[]> {
-  const url = `${config.baseUrl}/api/timesheets?begin=${begin.toISOString()}&end=${end.toISOString()}&size=1000`;
+  // Kimai rejects a Z/offset suffix and interprets a naive datetime as the
+  // user's own Kimai timezone, not UTC (confirmed against a live instance).
+  const url = `${config.baseUrl}/api/timesheets?begin=${toLocalDateTimeString(begin.toISOString())}&end=${toLocalDateTimeString(end.toISOString())}&size=1000`;
   const res = await fetch(url, { headers: headers(config) });
   if (!res.ok) throw new Error(`Kimai timesheets request failed: ${res.status}`);
   return res.json();
@@ -64,7 +68,11 @@ export async function createKimaiTimesheet(
   const res = await fetch(`${config.baseUrl}/api/timesheets`, {
     method: "POST",
     headers: headers(config),
-    body: JSON.stringify(entry),
+    body: JSON.stringify({
+      ...entry,
+      begin: toLocalDateTimeString(entry.begin),
+      end: toLocalDateTimeString(entry.end),
+    }),
   });
   if (!res.ok) throw new Error(`Kimai timesheet creation failed: ${res.status} ${await res.text()}`);
   return res.json();
