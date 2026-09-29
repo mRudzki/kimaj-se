@@ -11,6 +11,7 @@ export function SummaryPage({ summary, onBack }: { summary: MonthlySummary; onBa
   const [resultByIndex, setResultByIndex] = useState<(SubmitResult | null)[]>(rows.map(() => null));
   const [options, setOptions] = useState<KimaiOptions | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [skipped, setSkipped] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     api.getKimaiOptions().then(setOptions);
@@ -20,14 +21,24 @@ export function SummaryPage({ summary, onBack }: { summary: MonthlySummary; onBa
     setRows((prev) => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)));
   }
 
+  function toggleSkipped(index: number) {
+    setSkipped((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }
+
   async function handleSubmit() {
     setSubmitting(true);
     try {
-      // Only (re)send rows that have hours and were not already accepted by Kimai —
-      // resending an already-successful row would create a duplicate entry.
+      // Only (re)send rows that have hours, were not skipped, and were not
+      // already accepted by Kimai — resending an already-successful row
+      // would create a duplicate entry.
       const pendingIndices = rows
         .map((row, i) => i)
-        .filter((i) => rows[i].hours > 0 && resultByIndex[i]?.success !== true);
+        .filter((i) => rows[i].hours > 0 && !skipped.has(i) && resultByIndex[i]?.success !== true);
       const pendingRows = pendingIndices.map((i) => rows[i]);
 
       // The server pushes exactly one result per row it doesn't silently skip;
@@ -49,9 +60,10 @@ export function SummaryPage({ summary, onBack }: { summary: MonthlySummary; onBa
 
   if (!options) return <div>Ladowanie...</div>;
 
-  const workingDays = countWorkingDays(rows);
+  const includedRows = rows.filter((_, i) => !skipped.has(i));
+  const workingDays = countWorkingDays(includedRows);
   const expectedHours = workingDays * 8;
-  const actualHours = rows.reduce((sum, row) => sum + row.hours, 0);
+  const actualHours = includedRows.reduce((sum, row) => sum + row.hours, 0);
   const hoursMismatch = actualHours !== expectedHours;
 
   return (
@@ -75,19 +87,22 @@ export function SummaryPage({ summary, onBack }: { summary: MonthlySummary; onBa
             <th>Godziny</th>
             <th>Opis</th>
             <th>Status</th>
+            <th>Akcje</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row, i) => {
             const result = resultByIndex[i];
             const locked = result?.success === true;
+            const isSkipped = skipped.has(i);
+            const disabled = locked || isSkipped;
             return (
               <tr key={`${row.date}-${row.projectKey ?? "manual"}-${i}`}>
                 <td>{row.date}</td>
                 <td>
                   <select
                     value={row.kimaiProjectId ?? ""}
-                    disabled={locked}
+                    disabled={disabled}
                     onChange={(e) => updateRow(i, { kimaiProjectId: Number(e.target.value) })}
                   >
                     <option value="" disabled>
@@ -103,7 +118,7 @@ export function SummaryPage({ summary, onBack }: { summary: MonthlySummary; onBa
                 <td>
                   <select
                     value={row.kimaiActivityId ?? ""}
-                    disabled={locked}
+                    disabled={disabled}
                     onChange={(e) => updateRow(i, { kimaiActivityId: Number(e.target.value) })}
                   >
                     <option value="" disabled>
@@ -121,25 +136,32 @@ export function SummaryPage({ summary, onBack }: { summary: MonthlySummary; onBa
                     type="number"
                     step={0.5}
                     value={row.hours}
-                    disabled={locked}
+                    disabled={disabled}
                     onChange={(e) => updateRow(i, { hours: Number(e.target.value) })}
                   />
                 </td>
                 <td>
                   <input
                     value={row.description}
-                    disabled={locked}
+                    disabled={disabled}
                     onChange={(e) => updateRow(i, { description: e.target.value })}
                   />
                 </td>
                 <td>
-                  {result ? (
+                  {isSkipped ? (
+                    <span className="hint">Pominieto</span>
+                  ) : result ? (
                     <span className={result.success ? "status-ok" : "status-fail"}>
                       {result.success ? "Wyslano" : `Blad: ${result.error}`}
                     </span>
                   ) : (
                     row.status
                   )}
+                </td>
+                <td>
+                  <button className="secondary" disabled={locked} onClick={() => toggleSkipped(i)}>
+                    {isSkipped ? "Przywroc" : "Pomin"}
+                  </button>
                 </td>
               </tr>
             );
@@ -157,8 +179,9 @@ export function SummaryPage({ summary, onBack }: { summary: MonthlySummary; onBa
         {submitting ? "Wysylam..." : "Wyslij do Kimai"}
       </button>
       <p className="hint">
-        Wysyla tylko wiersze z godzinami &gt; 0, ktore jeszcze nie zostaly pomyslnie zapisane w Kimai — mozesz
-        bezpiecznie kliknac ponownie po poprawieniu bledow.
+        Wysyla tylko wiersze z godzinami &gt; 0, ktore nie sa pominiete i jeszcze nie zostaly pomyslnie zapisane w
+        Kimai — mozesz bezpiecznie kliknac ponownie po poprawieniu bledow. Przyciskiem "Pomin" przy wierszu
+        wylaczysz go z wysylki i z rozliczenia godzin bez usuwania go z listy.
       </p>
     </div>
   );
