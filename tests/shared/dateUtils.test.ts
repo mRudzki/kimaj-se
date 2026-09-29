@@ -4,6 +4,7 @@ import {
   eachLocalDateInMonth,
   localDateTimeToIso,
   toLocalDateTimeString,
+  isWeekend,
 } from "../../src/shared/dateUtils";
 
 describe("toLocalDateString", () => {
@@ -46,6 +47,24 @@ describe("toLocalDateTimeString", () => {
   it("round-trips with localDateTimeToIso", () => {
     const iso = localDateTimeToIso("2026-03-10", 14, 30);
     expect(toLocalDateTimeString(iso)).toBe("2026-03-10T14:30:00");
+  });
+});
+
+describe("isWeekend", () => {
+  it("treats Saturday as a weekend", () => {
+    expect(isWeekend("2026-01-03")).toBe(true);
+  });
+
+  it("treats Sunday as a weekend", () => {
+    expect(isWeekend("2026-01-04")).toBe(true);
+  });
+
+  it("treats Monday as not a weekend", () => {
+    expect(isWeekend("2026-01-05")).toBe(false);
+  });
+
+  it("treats Friday as not a weekend", () => {
+    expect(isWeekend("2026-01-02")).toBe(false);
   });
 });
 

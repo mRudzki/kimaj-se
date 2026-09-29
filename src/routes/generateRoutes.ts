@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { ActivityEvent, AppConfig, MappingStore, MonthlySummary, SummaryRow } from "../shared/types";
 import { aggregateDay } from "../aggregation/dayAggregator";
-import { toLocalDateString, eachLocalDateInMonth } from "../shared/dateUtils";
+import { toLocalDateString, eachLocalDateInMonth, isWeekend } from "../shared/dateUtils";
 
 export interface GenerateDeps {
   loadConfig: () => Promise<AppConfig | null>;
@@ -54,6 +54,7 @@ export function createGenerateRoutes(deps: GenerateDeps) {
     const rows: SummaryRow[] = [];
 
     for (const date of eachLocalDateInMonth(month)) {
+      if (isWeekend(date)) continue;
       if (daysWithExistingEntries.has(date)) continue;
 
       const dayEvents = eventsByDay.get(date) ?? [];

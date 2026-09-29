@@ -35,10 +35,27 @@ async function post(app: Hono, month: string) {
 }
 
 describe("generate route", () => {
-  it("returns a manual row for every day when there is no activity at all", async () => {
+  it("returns a manual row for every working day when there is no activity at all, excluding weekends", async () => {
     const summary = await post(buildApp(), "2026-02");
-    expect(summary.rows.length).toBe(28);
+    // February 2026 has 28 days, 8 of them weekend days (4 Sat + 4 Sun) -> 20 working days.
+    expect(summary.rows.length).toBe(20);
     expect(summary.rows.every((r: any) => r.status === "manual" && r.hours === 0)).toBe(true);
+    expect(summary.rows.some((r: any) => r.date === "2026-02-07")).toBe(false); // Saturday
+    expect(summary.rows.some((r: any) => r.date === "2026-02-08")).toBe(false); // Sunday
+    expect(summary.missingMappings).toEqual([]);
+  });
+
+  it("excludes a weekend day from the summary even when it has real detected activity", async () => {
+    const summary = await post(
+      buildApp({
+        fetchGithubActivity: async () => [
+          // 2026-02-07 is a Saturday.
+          { projectKey: "github:a/b", timestamp: "2026-02-07T08:00:00Z", source: "github" },
+        ],
+      }),
+      "2026-02"
+    );
+    expect(summary.rows.some((r: any) => r.date === "2026-02-07")).toBe(false);
     expect(summary.missingMappings).toEqual([]);
   });
 

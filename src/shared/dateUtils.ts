@@ -50,6 +50,12 @@ export function toLocalDateTimeString(isoTimestamp: string, timeZone = "Europe/W
   return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}`;
 }
 
+export function isWeekend(dateStr: string): boolean {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const dayOfWeek = new Date(Date.UTC(year, month - 1, day)).getUTCDay(); // 0 = Sunday, 6 = Saturday
+  return dayOfWeek === 0 || dayOfWeek === 6;
+}
+
 export function eachLocalDateInMonth(month: string): string[] {
   const [year, monthNum] = month.split("-").map(Number);
   const daysInMonth = new Date(Date.UTC(year, monthNum, 0)).getUTCDate();
