@@ -78,6 +78,11 @@ export function SummaryPage({ summary, onBack }: { summary: MonthlySummary; onBa
         Popraw projekt, aktywnosc, godziny lub opis dla dowolnego wiersza przed wyslaniem. Dni bez wykrytej
         aktywnosci maja 0h — uzupelnij je recznie, jesli pracowales.
       </p>
+      {summary.warnings?.map((warning) => (
+        <p className="alert" role="alert" key={warning}>
+          {warning}
+        </p>
+      ))}
       <table>
         <thead>
           <tr>

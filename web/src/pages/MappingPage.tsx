@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
+import type { MappingHint } from "@shared/types";
+import { suggestMapping } from "@shared/suggestMapping";
 import { api } from "../api";
 
 export function MappingPage({
   missingMappings,
+  hints,
   onResolved,
 }: {
   missingMappings: string[];
+  hints: Record<string, MappingHint>;
   onResolved: () => Promise<void>;
 }) {
   const [options, setOptions] = useState<{ projects: { id: number; name: string }[]; activities: { id: number; name: string }[] } | null>(null);
@@ -15,7 +19,17 @@ export function MappingPage({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getKimaiOptions().then(setOptions);
+    Promise.all([api.getKimaiOptions(), api.getMapping()]).then(([kimaiOptions, mapping]) => {
+      setOptions(kimaiOptions);
+      const suggested: Record<string, { kimaiProjectId: number; kimaiActivityId: number }> = {};
+      for (const key of missingMappings) {
+        const hint = hints[key];
+        if (!hint) continue;
+        const s = suggestMapping(hint, mapping, kimaiOptions.projects);
+        if (s) suggested[key] = { kimaiProjectId: s.kimaiProjectId, kimaiActivityId: s.kimaiActivityId ?? 0 };
+      }
+      setChoices(suggested);
+    });
   }, []);
 
   function setChoice(projectKey: string, field: "kimaiProjectId" | "kimaiActivityId", value: number) {
@@ -39,13 +53,14 @@ export function MappingPage({
     setError(null);
     try {
       for (const projectKey of missingMappings) {
+        const labelPart = hints[projectKey] ? { label: hints[projectKey].label } : {};
         if (skipped.has(projectKey)) {
-          await api.saveMappingEntry(projectKey, { ignored: true });
+          await api.saveMappingEntry(projectKey, { ignored: true, ...labelPart });
           continue;
         }
         const choice = choices[projectKey];
         if (!choice?.kimaiProjectId || !choice?.kimaiActivityId) continue;
-        await api.saveMappingEntry(projectKey, choice);
+        await api.saveMappingEntry(projectKey, { ...choice, ...labelPart });
       }
       await onResolved();
     } catch (err) {
@@ -65,7 +80,8 @@ export function MappingPage({
     <div>
       <h1>Przypisz projekty</h1>
       <p className="hint">
-        Te repozytoria/projekty nie maja jeszcze przypisanego projektu i aktywnosci w Kimai. Przypisz kazde z nich,
+        Te repozytoria/projekty/pliki Figmy nie maja jeszcze przypisanego projektu i aktywnosci w Kimai. Podpowiedzi
+        sa tylko sugestia — sprawdz je. Przypisz kazde z nich,
         zeby kontynuowac, albo pomin te, ktore sa prywatne i nie powinny trafiac do Kimai — nie beda juz pytane
         ponownie.
       </p>
@@ -74,11 +90,11 @@ export function MappingPage({
           const isSkipped = skipped.has(projectKey);
           return (
             <div className="mapping-row" key={projectKey}>
-              <span className="project-key">{projectKey}</span>
+              <span className="project-key" title={projectKey}>{hints[projectKey]?.label ?? projectKey}</span>
               <select
                 disabled={isSkipped}
                 onChange={(e) => setChoice(projectKey, "kimaiProjectId", Number(e.target.value))}
-                defaultValue=""
+                value={choices[projectKey]?.kimaiProjectId || ""}
               >
                 <option value="" disabled>Projekt Kimai</option>
                 {options.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -86,7 +102,7 @@ export function MappingPage({
               <select
                 disabled={isSkipped}
                 onChange={(e) => setChoice(projectKey, "kimaiActivityId", Number(e.target.value))}
-                defaultValue=""
+                value={choices[projectKey]?.kimaiActivityId || ""}
               >
                 <option value="" disabled>Aktywnosc Kimai</option>
                 {options.activities.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}

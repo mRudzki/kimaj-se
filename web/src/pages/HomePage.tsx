@@ -60,7 +60,7 @@ export function HomePage({
           {loading ? "Generuje..." : "Generuj"}
         </button>
         <p className="hint">
-          Pobierze Twoja aktywnosc z GitHub i Jiry za ten miesiac i zbuduje propozycje wpisow czasu do przejrzenia
+          Pobierze Twoja aktywnosc z GitHub, Jiry i Figmy (jesli skonfigurowana) za ten miesiac i zbuduje propozycje wpisow czasu do przejrzenia
           przed wyslaniem. Nic nie trafia do Kimai na tym etapie.
         </p>
       </div>

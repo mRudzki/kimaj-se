@@ -1,14 +1,9 @@
 import { useEffect, useState } from "react";
 import type { MappingStore } from "@shared/types";
 import { api } from "../api";
+import { toLocalEntry, toMappingEntry, type LocalEntry } from "../mappingEntry";
 
-type LocalEntry = { kimaiProjectId: number; kimaiActivityId: number; ignored: boolean };
 type KimaiOptions = { projects: { id: number; name: string }[]; activities: { id: number; name: string }[] };
-
-function toLocalEntry(entry: MappingStore[string]): LocalEntry {
-  if ("ignored" in entry) return { kimaiProjectId: 0, kimaiActivityId: 0, ignored: true };
-  return { kimaiProjectId: entry.kimaiProjectId, kimaiActivityId: entry.kimaiActivityId, ignored: false };
-}
 
 export function MappingsManagerPage({ onBack }: { onBack: () => void }) {
   const [mapping, setMapping] = useState<MappingStore | null>(null);
@@ -36,10 +31,7 @@ export function MappingsManagerPage({ onBack }: { onBack: () => void }) {
     setError(null);
     try {
       for (const [projectKey, e] of Object.entries(edits)) {
-        const entry = e.ignored
-          ? ({ ignored: true } as const)
-          : { kimaiProjectId: e.kimaiProjectId, kimaiActivityId: e.kimaiActivityId };
-        await api.saveMappingEntry(projectKey, entry);
+        await api.saveMappingEntry(projectKey, toMappingEntry(e));
       }
       setSaved(true);
     } catch (err) {
@@ -71,7 +63,7 @@ export function MappingsManagerPage({ onBack }: { onBack: () => void }) {
             const e = edits[projectKey] ?? toLocalEntry(mapping[projectKey]);
             return (
               <div className="mapping-row" key={projectKey}>
-                <span className="project-key">{projectKey}</span>
+                <span className="project-key" title={projectKey}>{e.label ?? projectKey}</span>
                 <select
                   value={e.ignored ? "" : e.kimaiProjectId}
                   disabled={e.ignored}
