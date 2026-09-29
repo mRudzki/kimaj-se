@@ -29,10 +29,7 @@ export interface MonthlySummary {
   missingMappings: string[]; // projectKeys with no mapping entry
 }
 
-export interface MappingEntry {
-  kimaiProjectId: number;
-  kimaiActivityId: number;
-}
+export type MappingEntry = { kimaiProjectId: number; kimaiActivityId: number } | { ignored: true };
 
 export type MappingStore = Record<string, MappingEntry>;
 

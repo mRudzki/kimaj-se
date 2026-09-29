@@ -91,6 +91,40 @@ describe("generate route", () => {
     expect(jan4Rows.length).toBe(0);
   });
 
+  it("excludes activity from a project marked as ignored, and never flags it as missing a mapping", async () => {
+    const summary = await post(
+      buildApp({
+        loadMapping: async () => ({ "github:private/side-project": { ignored: true } }),
+        fetchGithubActivity: async () => [
+          { projectKey: "github:private/side-project", timestamp: "2026-02-05T08:00:00Z", source: "github" },
+        ],
+      }),
+      "2026-02"
+    );
+    const feb5Row = summary.rows.find((r: any) => r.date === "2026-02-05");
+    expect(feb5Row.status).toBe("manual");
+    expect(feb5Row.hours).toBe(0);
+    expect(summary.missingMappings).toEqual([]);
+  });
+
+  it("still builds a row for a mapped project when an ignored project shares the same day", async () => {
+    const summary = await post(
+      buildApp({
+        loadMapping: async () => ({ "github:private/side-project": { ignored: true } }),
+        fetchGithubActivity: async () => [
+          { projectKey: "github:private/side-project", timestamp: "2026-02-05T08:00:00Z", source: "github" },
+          { projectKey: "github:work/repo", timestamp: "2026-02-05T09:00:00Z", source: "github" },
+          { projectKey: "github:work/repo", timestamp: "2026-02-05T13:00:00Z", source: "github" },
+        ],
+      }),
+      "2026-02"
+    );
+    const feb5Rows = summary.rows.filter((r: any) => r.date === "2026-02-05");
+    expect(feb5Rows.length).toBe(1);
+    expect(feb5Rows[0].projectKey).toBe("github:work/repo");
+    expect(feb5Rows[0].hours).toBe(8);
+  });
+
   it("lists a projectKey in missingMappings when no mapping entry exists for it", async () => {
     const summary = await post(
       buildApp({

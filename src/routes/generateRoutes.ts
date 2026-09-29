@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { ActivityEvent, AppConfig, MappingStore, MonthlySummary, SummaryRow } from "../shared/types";
+import type { ActivityEvent, AppConfig, MappingEntry, MappingStore, MonthlySummary, SummaryRow } from "../shared/types";
 import { aggregateDay } from "../aggregation/dayAggregator";
 import { toLocalDateString, eachLocalDateInMonth, isWeekend } from "../shared/dateUtils";
 
@@ -16,6 +16,10 @@ export interface GenerateDeps {
 }
 
 const TIMEZONE_BUFFER_MS = 3 * 60 * 60 * 1000; // covers Europe/Warsaw's UTC+1 / UTC+2 offset
+
+function isIgnored(entry: MappingEntry | undefined): boolean {
+  return entry !== undefined && "ignored" in entry && entry.ignored === true;
+}
 
 function groupByLocalDay(events: ActivityEvent[]): Map<string, ActivityEvent[]> {
   const map = new Map<string, ActivityEvent[]>();
@@ -48,7 +52,8 @@ export function createGenerateRoutes(deps: GenerateDeps) {
     ]);
 
     const daysWithExistingEntries = new Set(existingTimesheets.map((t) => toLocalDateString(t.begin)));
-    const eventsByDay = groupByLocalDay([...githubEvents, ...jiraEvents]);
+    const activeEvents = [...githubEvents, ...jiraEvents].filter((evt) => !isIgnored(mapping[evt.projectKey]));
+    const eventsByDay = groupByLocalDay(activeEvents);
 
     const missingMappings = new Set<string>();
     const rows: SummaryRow[] = [];
@@ -79,11 +84,12 @@ export function createGenerateRoutes(deps: GenerateDeps) {
 
       for (const block of aggregateDay(dayEvents)) {
         const entry = mapping[block.projectKey];
+        const hasKimaiMapping = entry && "kimaiProjectId" in entry;
         rows.push({
           date,
           projectKey: block.projectKey,
-          kimaiProjectId: entry?.kimaiProjectId ?? null,
-          kimaiActivityId: entry?.kimaiActivityId ?? null,
+          kimaiProjectId: hasKimaiMapping ? entry.kimaiProjectId : null,
+          kimaiActivityId: hasKimaiMapping ? entry.kimaiActivityId : null,
           beginIso: block.beginIso,
           endIso: block.endIso,
           hours: block.hours,
