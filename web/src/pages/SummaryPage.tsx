@@ -168,13 +168,11 @@ export function SummaryPage({ summary, onBack }: { summary: MonthlySummary; onBa
           })}
         </tbody>
       </table>
-      {hoursMismatch && (
-        <p className="alert">
-          Suma godzin w zestawieniu ({actualHours}h) rozni sie od oczekiwanej liczby godzin roboczych dla tego
-          miesiaca ({expectedHours}h dla {workingDays} dni roboczych) — sprawdz, czy nie brakuje wpisow lub czy
-          gdzies nie ma pomylki w godzinach.
-        </p>
-      )}
+      <p className={hoursMismatch ? "alert" : "summary-ok"}>
+        Suma godzin w zestawieniu: {actualHours}h / oczekiwane {expectedHours}h dla {workingDays} dni roboczych.
+        {hoursMismatch &&
+          " Rozni sie od oczekiwanej liczby godzin — sprawdz, czy nie brakuje wpisow lub czy gdzies nie ma pomylki w godzinach."}
+      </p>
       <button onClick={handleSubmit} disabled={submitting}>
         {submitting ? "Wysylam..." : "Wyslij do Kimai"}
       </button>

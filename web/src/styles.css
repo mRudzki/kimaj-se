@@ -173,6 +173,16 @@ button.secondary:hover:not(:disabled) {
   margin-top: 12px;
 }
 
+.summary-ok {
+  background: rgba(111, 216, 138, 0.1);
+  border: 1px solid var(--success);
+  color: var(--success);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-top: 12px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
