@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { MonthlySummary, SubmitResult, SummaryRow } from "@shared/types";
 import { api } from "../api";
+import { countWorkingDays } from "../summaryHours";
 
 type KimaiOptions = { projects: { id: number; name: string }[]; activities: { id: number; name: string }[] };
 
@@ -48,7 +49,8 @@ export function SummaryPage({ summary, onBack }: { summary: MonthlySummary; onBa
 
   if (!options) return <div>Ladowanie...</div>;
 
-  const expectedHours = rows.length * 8;
+  const workingDays = countWorkingDays(rows);
+  const expectedHours = workingDays * 8;
   const actualHours = rows.reduce((sum, row) => sum + row.hours, 0);
   const hoursMismatch = actualHours !== expectedHours;
 
@@ -147,7 +149,7 @@ export function SummaryPage({ summary, onBack }: { summary: MonthlySummary; onBa
       {hoursMismatch && (
         <p className="alert">
           Suma godzin w zestawieniu ({actualHours}h) rozni sie od oczekiwanej liczby godzin roboczych dla tego
-          miesiaca ({expectedHours}h dla {rows.length} dni roboczych) — sprawdz, czy nie brakuje wpisow lub czy
+          miesiaca ({expectedHours}h dla {workingDays} dni roboczych) — sprawdz, czy nie brakuje wpisow lub czy
           gdzies nie ma pomylki w godzinach.
         </p>
       )}
