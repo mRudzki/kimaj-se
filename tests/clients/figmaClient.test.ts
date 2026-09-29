@@ -44,7 +44,7 @@ describe("figmaClient", () => {
           { key: "old", name: "Old file", last_modified: "2025-06-01T10:00:00Z" },
         ],
       },
-      "/v1/files/abc/versions": {
+      "/v1/files/abc/versions?page_size=50": {
         versions: [
           { id: "v3", created_at: "2026-01-21T09:00:00Z", label: null, description: null, user: { id: "me-1" } },
           { id: "v2", created_at: "2026-01-15T09:00:00Z", label: "Ready", description: "PROJ-2 handoff", user: { id: "me-1" } },
@@ -85,7 +85,7 @@ describe("figmaClient", () => {
     const seen = mockFigma({
       ...baseRoutes,
       "/v1/projects/p1/files": { files: [{ key: "abc", name: "F", last_modified: "2026-01-20T10:00:00Z" }] },
-      "/v1/files/abc/versions": {
+      "/v1/files/abc/versions?page_size=50": {
         versions: [{ id: "a", created_at: "2026-01-20T09:00:00Z", label: null, description: null, user: { id: "me-1" } }],
         pagination: { next_page: "https://api.figma.com/v1/files/abc/versions?page_size=30&before=a" },
       },
@@ -102,23 +102,89 @@ describe("figmaClient", () => {
     expect(seen.some((s) => s.url.endsWith("before=b"))).toBe(false); // page 2 was entirely too old
   });
 
-  it("never sends the token to a next_page URL on another host", async () => {
+  it("never sends the token to a next_page URL on another host (the file is skipped with a warning)", async () => {
     const seen = mockFigma({
       ...baseRoutes,
       "/v1/projects/p1/files": { files: [{ key: "abc", name: "F", last_modified: "2026-01-20T10:00:00Z" }] },
-      "/v1/files/abc/versions": {
+      "/v1/files/abc/versions?page_size=50": {
         versions: [{ id: "a", created_at: "2026-01-20T09:00:00Z", label: null, description: null, user: { id: "me-1" } }],
         pagination: { next_page: "https://evil.example.com/steal" },
       },
       "/v1/files/abc/comments": { comments: [] },
     });
+    const warnings: string[] = [];
 
-    await expect(fetchFigmaActivity(config, since, until)).rejects.toThrow();
+    await fetchFigmaActivity(config, since, until, (w) => warnings.push(w));
+
     expect(seen.some((s) => s.url.startsWith("https://evil.example.com"))).toBe(false);
+    expect(warnings.length).toBe(1);
+  });
+
+  it("keeps the other files and warns when one file cannot be fetched", async () => {
+    mockFigma({
+      ...baseRoutes,
+      "/v1/projects/p1/files": {
+        files: [
+          { key: "bad", name: "Broken file", last_modified: "2026-01-20T10:00:00Z" }, // no versions route -> 404
+          { key: "ok", name: "Good file", last_modified: "2026-01-20T10:00:00Z" },
+        ],
+      },
+      "/v1/files/ok/versions?page_size=50": {
+        versions: [{ id: "a", created_at: "2026-01-20T09:00:00Z", label: null, description: null, user: { id: "me-1" } }],
+      },
+      "/v1/files/ok/comments": { comments: [] },
+    });
+    const warnings: string[] = [];
+
+    const events = await fetchFigmaActivity(config, since, until, (w) => warnings.push(w));
+
+    expect(events.map((e) => e.projectKey)).toEqual(["figma:file:ok"]);
+    expect(warnings.length).toBe(1);
+    expect(warnings[0]).toContain("Broken file");
+    expect(warnings[0]).toContain("404");
+  });
+
+  it("warns when a file has more versions than we are willing to page through", async () => {
+    const self = "https://api.figma.com/v1/files/abc/versions?page_size=50&before=x";
+    const page = {
+      versions: [{ id: "a", created_at: "2026-01-20T09:00:00Z", label: null, description: null, user: { id: "me-1" } }],
+      pagination: { next_page: self },
+    };
+    mockFigma({
+      ...baseRoutes,
+      "/v1/projects/p1/files": { files: [{ key: "abc", name: "Busy file", last_modified: "2026-01-20T10:00:00Z" }] },
+      "/v1/files/abc/versions?page_size=50": page,
+      "/v1/files/abc/versions?page_size=50&before=x": page,
+      "/v1/files/abc/comments": { comments: [] },
+    });
+    const warnings: string[] = [];
+
+    await fetchFigmaActivity(config, since, until, (w) => warnings.push(w));
+
+    expect(warnings.length).toBe(1);
+    expect(warnings[0]).toContain("Busy file");
+  });
+
+  it("retries a 429 (honoring Retry-After) and succeeds", async () => {
+    let meCalls = 0;
+    globalThis.fetch = (async (url: string) => {
+      const path = new URL(url).pathname;
+      if (path === "/v1/me") {
+        meCalls++;
+        if (meCalls === 1) return new Response("", { status: 429, headers: { "Retry-After": "0" } });
+        return new Response(JSON.stringify({ id: "me-1" }), { status: 200 });
+      }
+      if (path === "/v1/teams/team1/projects") return new Response(JSON.stringify({ projects: [] }), { status: 200 });
+      return new Response("", { status: 404 });
+    }) as typeof fetch;
+
+    expect(await fetchFigmaActivity(config, since, until)).toEqual([]);
+    expect(meCalls).toBe(2);
   });
 
   it("throws when Figma answers with an error status", async () => {
-    globalThis.fetch = (async () => new Response("", { status: 429 })) as typeof fetch;
+    globalThis.fetch = (async () =>
+      new Response("", { status: 429, headers: { "Retry-After": "0" } })) as typeof fetch;
     await expect(fetchFigmaActivity(config, since, until)).rejects.toThrow("429");
   });
 });

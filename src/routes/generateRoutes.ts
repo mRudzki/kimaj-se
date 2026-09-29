@@ -20,7 +20,8 @@ export interface GenerateDeps {
   fetchFigmaActivity: (
     c: NonNullable<AppConfig["figma"]>,
     since: Date,
-    until: Date
+    until: Date,
+    onWarning?: (message: string) => void
   ) => Promise<ActivityEvent[]>;
   fetchKimaiTimesheets: (
     c: AppConfig["kimai"],
@@ -74,7 +75,7 @@ export function createGenerateRoutes(deps: GenerateDeps) {
     const figmaConfig =
       config.figma && config.figma.token && config.figma.teamIds.length > 0 ? config.figma : null;
     const figmaPromise: Promise<ActivityEvent[]> = figmaConfig
-      ? deps.fetchFigmaActivity(figmaConfig, since, until).catch((err: Error) => {
+      ? deps.fetchFigmaActivity(figmaConfig, since, until, (w) => warnings.push(w)).catch((err: Error) => {
           // Figma is optional: a failure must not throw away the GitHub/Jira half of the month.
           warnings.push(`Nie udalo sie pobrac aktywnosci z Figmy: ${err.message}`);
           return [];

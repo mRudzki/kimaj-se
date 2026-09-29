@@ -23,14 +23,27 @@ interface FigmaComment {
 
 const BASE_URL = "https://api.figma.com";
 const MAX_VERSION_PAGES = 20;
+const MAX_RATE_LIMIT_RETRIES = 2;
+const MAX_RETRY_WAIT_MS = 10_000;
+const DEFAULT_RETRY_WAIT_MS = 1_000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function figmaGet<T>(config: FigmaClientConfig, urlOrPath: string): Promise<T> {
   // Pagination hands us absolute URLs; never send the token anywhere but Figma's API.
   const url = urlOrPath.startsWith("http") ? urlOrPath : `${BASE_URL}${urlOrPath}`;
   if (!url.startsWith(`${BASE_URL}/`)) throw new Error(`Refusing to call non-Figma URL: ${url}`);
-  const res = await fetch(url, { headers: { "X-Figma-Token": config.token } });
-  if (!res.ok) throw new Error(`Figma request ${urlOrPath} failed: ${res.status}`);
-  return (await res.json()) as T;
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, { headers: { "X-Figma-Token": config.token } });
+    if (res.status === 429 && attempt < MAX_RATE_LIMIT_RETRIES) {
+      const retryAfter = Number(res.headers.get("Retry-After"));
+      const waitMs = Number.isFinite(retryAfter) && res.headers.has("Retry-After") ? retryAfter * 1000 : DEFAULT_RETRY_WAIT_MS;
+      await sleep(Math.min(waitMs, MAX_RETRY_WAIT_MS));
+      continue;
+    }
+    if (!res.ok) throw new Error(`Figma request ${urlOrPath} failed: ${res.status}`);
+    return (await res.json()) as T;
+  }
 }
 
 export async function testFigmaConnection(config: FigmaClientConfig): Promise<boolean> {
@@ -53,7 +66,8 @@ async function fetchFileEvents(
   file: { key: string; name: string },
   folderName: string,
   since: Date,
-  until: Date
+  until: Date,
+  onWarning: (message: string) => void
 ): Promise<ActivityEvent[]> {
   const events: ActivityEvent[] = [];
   const projectKey = `figma:file:${file.key}`;
@@ -69,8 +83,12 @@ async function fetchFileEvents(
     },
   });
 
-  let next: string | undefined = `/v1/files/${file.key}/versions`;
-  for (let page = 0; next && page < MAX_VERSION_PAGES; page++) {
+  let next: string | undefined = `/v1/files/${file.key}/versions?page_size=50`;
+  for (let page = 0; next; page++) {
+    if (page >= MAX_VERSION_PAGES) {
+      onWarning(`Figma: plik "${file.name}" ma zbyt wiele wersji — czas z tego miesiaca moze byc niepelny.`);
+      break;
+    }
     const data: FigmaVersionsResponse = await figmaGet<FigmaVersionsResponse>(config, next);
     for (const v of data.versions) {
       if (v.user.id !== userId || !inRange(v.created_at, since, until)) continue;
@@ -93,10 +111,12 @@ async function fetchFileEvents(
 export async function fetchFigmaActivity(
   config: FigmaClientConfig,
   since: Date,
-  until: Date
+  until: Date,
+  onWarning: (message: string) => void = () => {}
 ): Promise<ActivityEvent[]> {
   const me = await figmaGet<{ id: string }>(config, "/v1/me");
   const events: ActivityEvent[] = [];
+  const failedFiles: { name: string; message: string }[] = [];
 
   for (const teamId of config.teamIds) {
     const { projects } = await figmaGet<{ projects: { id: string; name: string }[] }>(
@@ -111,9 +131,22 @@ export async function fetchFigmaActivity(
       for (const file of files) {
         // A file untouched since before the range cannot hold versions inside it.
         if (new Date(file.last_modified) < since) continue;
-        events.push(...(await fetchFileEvents(config, me.id, file, project.name, since, until)));
+        try {
+          events.push(...(await fetchFileEvents(config, me.id, file, project.name, since, until, onWarning)));
+        } catch (err) {
+          // One unreadable file (no access, rate limit) must not discard everything else from Figma.
+          failedFiles.push({ name: file.name, message: (err as Error).message });
+        }
       }
     }
+  }
+
+  if (failedFiles.length > 0) {
+    const first = failedFiles[0];
+    onWarning(
+      `Figma: nie udalo sie pobrac ${failedFiles.length} plikow (np. "${first.name}": ${first.message}) — ` +
+        `dane z Figmy moga byc niekompletne.`
+    );
   }
 
   events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());

@@ -228,4 +228,17 @@ describe("generate route", () => {
     expect(summary.warnings[0]).toContain("Figm");
     expect(summary.warnings[0]).toContain("429");
   });
+  it("passes Figma's partial-data warnings through to the summary", async () => {
+    const summary = await post(
+      buildApp({
+        loadConfig: async () => figmaConfig,
+        fetchFigmaActivity: async (_c, _s, _u, onWarning) => {
+          onWarning?.("Figma: pominieto plik X");
+          return [];
+        },
+      }),
+      "2026-02"
+    );
+    expect(summary.warnings).toEqual(["Figma: pominieto plik X"]);
+  });
 });
