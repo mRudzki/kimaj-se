@@ -1,7 +1,8 @@
 # kimaj-se
 ### Nie wypełniaj lokalnie Kimai - zamiast tego kimaj se a apka zrobi robotę za ciebie
 Lokalna aplikacja, ktora automatycznie wypelnia timesheet w [Kimai](https://www.kimai.org/) na podstawie Twojej
-aktywnosci na GitHubie i w Jirze. Wybierasz miesiac, dostajesz gotowa propozycje wpisow czasu zbudowana z realnej
+aktywnosci na GitHubie, w Jirze i
+(opcjonalnie) w Figmie. Wybierasz miesiac, dostajesz gotowa propozycje wpisow czasu zbudowana z realnej
 aktywnosci (commity, PR, zmiany statusow w Jirze, komentarze), poprawiasz co trzeba w prostej tabeli i jednym
 klikniecim wysylasz do Kimai.
 
@@ -57,6 +58,19 @@ Wejdz w **Ustawienia** i uzupelnij:
 - **URL instancji** — np. `https://twojafirma.atlassian.net`.
 - **Email** — adres, ktorym logujesz sie do Jiry/Atlassian.
 - **Token API** — Atlassian -> Account settings -> Security -> API tokens -> Create API token.
+
+### Figma (opcjonalnie)
+- **Personal access token** — Figma -> Settings -> Security -> Personal access tokens. Zakresy: `file_content:read`,
+  `file_versions:read`, `file_comments:read`, `projects:read`.
+- **Team ID** — numer z adresu teamu: `figma.com/files/team/<ID>/...`. Kilka teamow oddziel przecinkami (Figma nie
+  udostepnia listy teamow przez API).
+
+Zostaw token pusty, zeby pominac Figme. Aplikacja liczy Twoje zapisane wersje plikow i Twoje komentarze; caly plik to
+jeden projekt w Kimai (strony/pages wewnatrz pliku nie sa rozrozniane). Jesli w nazwie pliku, opisie wersji albo
+komentarzu jest klucz Jiry z juz zapisanym mapowaniem (np. `PROJ-123`), praca trafi do tego samego projektu co Jira.
+W przeciwnym razie plik dostanie wlasne mapowanie — przy pierwszym uzyciu aplikacja podpowie projekt Kimai (na
+podstawie innego pliku z tego samego folderu albo podobnej nazwy). Blad Figmy nie blokuje generowania — zobaczysz
+ostrzezenie w podsumowaniu.
 
 Po uzupelnieniu kliknij **Testuj polaczenia**, a nastepnie **Zapisz**. Dane zapisywane sa lokalnie w
 `~/.kimaj-se/config.json` — nigdy w repozytorium.
