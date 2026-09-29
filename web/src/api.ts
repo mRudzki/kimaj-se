@@ -18,7 +18,9 @@ export const api = {
   saveConfig: (config: AppConfig) =>
     fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) }).then((r) => json<{ ok: true }>(r)),
   testConnections: (config: AppConfig) =>
-    fetch("/api/settings/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) }).then((r) => json<{ kimai: boolean; github: boolean; jira: boolean }>(r)),
+    fetch("/api/settings/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) }).then((r) =>
+      json<{ kimai: boolean; github: boolean; githubWarning: string | null; jira: boolean }>(r)
+    ),
 
   getMapping: () => fetch("/api/mapping").then((r) => json<MappingStore>(r)),
   saveMappingEntry: (projectKey: string, entry: MappingEntry) =>

@@ -48,6 +48,10 @@ export function SummaryPage({ summary, onBack }: { summary: MonthlySummary; onBa
 
   if (!options) return <div>Ladowanie...</div>;
 
+  const expectedHours = rows.length * 8;
+  const actualHours = rows.reduce((sum, row) => sum + row.hours, 0);
+  const hoursMismatch = actualHours !== expectedHours;
+
   return (
     <div>
       <div className="toolbar" style={{ justifyContent: "space-between" }}>
@@ -140,6 +144,13 @@ export function SummaryPage({ summary, onBack }: { summary: MonthlySummary; onBa
           })}
         </tbody>
       </table>
+      {hoursMismatch && (
+        <p className="alert">
+          Suma godzin w zestawieniu ({actualHours}h) rozni sie od oczekiwanej liczby godzin roboczych dla tego
+          miesiaca ({expectedHours}h dla {rows.length} dni roboczych) — sprawdz, czy nie brakuje wpisow lub czy
+          gdzies nie ma pomylki w godzinach.
+        </p>
+      )}
       <button onClick={handleSubmit} disabled={submitting}>
         {submitting ? "Wysylam..." : "Wyslij do Kimai"}
       </button>

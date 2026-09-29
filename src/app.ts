@@ -14,7 +14,7 @@ import {
   fetchKimaiTimesheets,
   createKimaiTimesheet,
 } from "./clients/kimaiClient";
-import { testGithubConnection, fetchGithubActivity } from "./clients/githubClient";
+import { testGithubConnection, fetchGithubTokenScopes, fetchGithubActivity } from "./clients/githubClient";
 import { testJiraConnection, fetchJiraActivity } from "./clients/jiraClient";
 
 export function createApp() {
@@ -22,7 +22,14 @@ export function createApp() {
   app.get("/api/health", (c) => c.json({ ok: true }));
   app.route(
     "/api/settings",
-    createSettingsRoutes({ loadConfig, saveConfig, testKimaiConnection, testGithubConnection, testJiraConnection })
+    createSettingsRoutes({
+      loadConfig,
+      saveConfig,
+      testKimaiConnection,
+      testGithubConnection,
+      fetchGithubTokenScopes,
+      testJiraConnection,
+    })
   );
   app.route(
     "/api/mapping",

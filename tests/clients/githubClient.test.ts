@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "bun:test";
-import { testGithubConnection, fetchGithubActivity } from "../../src/clients/githubClient";
+import { testGithubConnection, fetchGithubActivity, fetchGithubTokenScopes } from "../../src/clients/githubClient";
 
 const originalFetch = globalThis.fetch;
 afterEach(() => {
@@ -86,6 +86,26 @@ describe("githubClient", () => {
     expect(events).toEqual([
       { projectKey: "github:mRudzki/a", timestamp: "2026-01-10T10:00:00Z", source: "github" },
     ]);
+  });
+
+  it("fetchGithubTokenScopes parses the x-oauth-scopes response header", async () => {
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ login: "mRudzki" }), {
+        status: 200,
+        headers: { "x-oauth-scopes": "repo, read:user" },
+      })) as typeof fetch;
+    expect(await fetchGithubTokenScopes(config)).toEqual(["repo", "read:user"]);
+  });
+
+  it("fetchGithubTokenScopes returns an empty list when the header is absent (fine-grained tokens)", async () => {
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ login: "mRudzki" }), { status: 200 })) as typeof fetch;
+    expect(await fetchGithubTokenScopes(config)).toEqual([]);
+  });
+
+  it("fetchGithubTokenScopes returns an empty list instead of throwing on failure", async () => {
+    globalThis.fetch = (async () => new Response("", { status: 401 })) as typeof fetch;
+    expect(await fetchGithubTokenScopes(config)).toEqual([]);
   });
 
   it("still throws when the very first events page fails (a real connectivity/auth problem)", async () => {

@@ -18,6 +18,7 @@ function buildApp(overrides: Partial<Parameters<typeof createSettingsRoutes>[0]>
       saveConfig: async () => {},
       testKimaiConnection: async () => true,
       testGithubConnection: async () => true,
+      fetchGithubTokenScopes: async () => ["repo", "read:user"],
       testJiraConnection: async () => true,
       ...overrides,
     })
@@ -57,6 +58,56 @@ describe("settings routes", () => {
       body: JSON.stringify(sampleConfig),
       headers: { "Content-Type": "application/json" },
     });
-    expect(await res.json()).toEqual({ kimai: true, github: false, jira: true });
+    expect(await res.json()).toEqual({ kimai: true, github: false, githubWarning: null, jira: true });
+  });
+
+  it("POST /test warns when the GitHub token lacks the repo scope", async () => {
+    const app = buildApp({ fetchGithubTokenScopes: async () => ["read:user"] });
+    const res = await app.request("/api/settings/test", {
+      method: "POST",
+      body: JSON.stringify(sampleConfig),
+      headers: { "Content-Type": "application/json" },
+    });
+    const body = await res.json();
+    expect(body.githubWarning).toContain("repo");
+  });
+
+  it("POST /test does not warn when the token has the repo scope", async () => {
+    const app = buildApp({ fetchGithubTokenScopes: async () => ["repo", "read:user"] });
+    const res = await app.request("/api/settings/test", {
+      method: "POST",
+      body: JSON.stringify(sampleConfig),
+      headers: { "Content-Type": "application/json" },
+    });
+    const body = await res.json();
+    expect(body.githubWarning).toBeNull();
+  });
+
+  it("POST /test does not warn when scopes can't be determined (e.g. fine-grained tokens)", async () => {
+    const app = buildApp({ fetchGithubTokenScopes: async () => [] });
+    const res = await app.request("/api/settings/test", {
+      method: "POST",
+      body: JSON.stringify(sampleConfig),
+      headers: { "Content-Type": "application/json" },
+    });
+    const body = await res.json();
+    expect(body.githubWarning).toBeNull();
+  });
+
+  it("POST /test skips the scope check entirely when the connection itself failed", async () => {
+    let scopeCalls = 0;
+    const app = buildApp({
+      testGithubConnection: async () => false,
+      fetchGithubTokenScopes: async () => {
+        scopeCalls++;
+        return ["repo"];
+      },
+    });
+    await app.request("/api/settings/test", {
+      method: "POST",
+      body: JSON.stringify(sampleConfig),
+      headers: { "Content-Type": "application/json" },
+    });
+    expect(scopeCalls).toBe(0);
   });
 });

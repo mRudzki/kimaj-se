@@ -10,7 +10,9 @@ const EMPTY_CONFIG: AppConfig = {
 
 export function SettingsPage({ onSaved }: { onSaved: () => void }) {
   const [config, setConfig] = useState<AppConfig>(EMPTY_CONFIG);
-  const [status, setStatus] = useState<{ kimai: boolean; github: boolean; jira: boolean } | null>(null);
+  const [status, setStatus] = useState<{ kimai: boolean; github: boolean; githubWarning: string | null; jira: boolean } | null>(
+    null
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -72,9 +74,11 @@ export function SettingsPage({ onSaved }: { onSaved: () => void }) {
             onChange={(e) => setConfig({ ...config, github: { token: e.target.value } })}
           />
           <p className="hint">
-            GitHub -&gt; Settings -&gt; Developer settings -&gt; Personal access tokens. Wystarczy uprawnienie do odczytu
-            aktywnosci (repo + read:user).
+            GitHub -&gt; Settings -&gt; Developer settings -&gt; Personal access tokens (classic) -&gt; Generate new token.
+            Zaznacz pelny zakres <strong>repo</strong> — bez niego commity i pull requesty z prywatnych repozytoriow
+            nie beda widoczne w aktywnosci.
           </p>
+          {status?.githubWarning && <p className="alert">{status.githubWarning}</p>}
         </div>
       </fieldset>
 

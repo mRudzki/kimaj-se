@@ -41,6 +41,23 @@ export async function testGithubConnection(config: GithubClientConfig): Promise<
   }
 }
 
+export async function fetchGithubTokenScopes(config: GithubClientConfig): Promise<string[]> {
+  try {
+    const res = await fetch("https://api.github.com/user", { headers: headers(config) });
+    if (!res.ok) return [];
+    // Classic PATs report their scopes here; fine-grained PATs and GitHub Apps
+    // don't send this header at all, so an empty list just means "unknown".
+    const raw = res.headers.get("x-oauth-scopes");
+    if (!raw) return [];
+    return raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchGithubActivity(
   config: GithubClientConfig,
   since: Date,

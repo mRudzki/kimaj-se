@@ -6,8 +6,11 @@ export interface SettingsDeps {
   saveConfig: (config: AppConfig) => Promise<void>;
   testKimaiConnection: (c: AppConfig["kimai"]) => Promise<boolean>;
   testGithubConnection: (c: AppConfig["github"]) => Promise<boolean>;
+  fetchGithubTokenScopes: (c: AppConfig["github"]) => Promise<string[]>;
   testJiraConnection: (c: AppConfig["jira"]) => Promise<boolean>;
 }
+
+const REQUIRED_GITHUB_SCOPE = "repo";
 
 export function createSettingsRoutes(deps: SettingsDeps) {
   const routes = new Hono();
@@ -27,7 +30,18 @@ export function createSettingsRoutes(deps: SettingsDeps) {
       deps.testGithubConnection(config.github),
       deps.testJiraConnection(config.jira),
     ]);
-    return c.json({ kimai, github, jira });
+
+    let githubWarning: string | null = null;
+    if (github) {
+      const scopes = await deps.fetchGithubTokenScopes(config.github);
+      if (scopes.length > 0 && !scopes.includes(REQUIRED_GITHUB_SCOPE)) {
+        githubWarning =
+          `Token nie ma zakresu "${REQUIRED_GITHUB_SCOPE}" — commity i pull requesty z prywatnych ` +
+          `repozytoriow nie beda widoczne. Wygeneruj nowy classic token z zaznaczonym "${REQUIRED_GITHUB_SCOPE}".`;
+      }
+    }
+
+    return c.json({ kimai, github, githubWarning, jira });
   });
 
   return routes;
