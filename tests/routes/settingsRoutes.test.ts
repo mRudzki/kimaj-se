@@ -20,6 +20,7 @@ function buildApp(overrides: Partial<Parameters<typeof createSettingsRoutes>[0]>
       testGithubConnection: async () => true,
       fetchGithubTokenScopes: async () => ["repo", "read:user"],
       testJiraConnection: async () => true,
+      testFigmaConnection: async () => true,
       ...overrides,
     })
   );
@@ -109,5 +110,27 @@ describe("settings routes", () => {
       headers: { "Content-Type": "application/json" },
     });
     expect(scopeCalls).toBe(0);
+  });
+
+  it("POST /test includes the Figma status only when a Figma token is configured", async () => {
+    const withFigma = { ...sampleConfig, figma: { token: "ft", teamIds: ["t1"] } };
+    const post = (app: ReturnType<typeof buildApp>, body: AppConfig) =>
+      app.request("/api/settings/test", {
+        method: "POST",
+        body: JSON.stringify(body),
+        headers: { "Content-Type": "application/json" },
+      });
+
+    const ok = await (await post(buildApp(), withFigma)).json();
+    expect(ok.figma).toBe(true);
+
+    const bad = await (await post(buildApp({ testFigmaConnection: async () => false }), withFigma)).json();
+    expect(bad.figma).toBe(false);
+
+    const without = await (await post(buildApp(), sampleConfig)).json();
+    expect("figma" in without).toBe(false);
+
+    const emptyToken = await (await post(buildApp(), { ...sampleConfig, figma: { token: "", teamIds: [] } })).json();
+    expect("figma" in emptyToken).toBe(false);
   });
 });

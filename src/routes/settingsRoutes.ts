@@ -8,6 +8,7 @@ export interface SettingsDeps {
   testGithubConnection: (c: AppConfig["github"]) => Promise<boolean>;
   fetchGithubTokenScopes: (c: AppConfig["github"]) => Promise<string[]>;
   testJiraConnection: (c: AppConfig["jira"]) => Promise<boolean>;
+  testFigmaConnection: (c: NonNullable<AppConfig["figma"]>) => Promise<boolean>;
 }
 
 const REQUIRED_GITHUB_SCOPE = "repo";
@@ -25,10 +26,12 @@ export function createSettingsRoutes(deps: SettingsDeps) {
 
   routes.post("/test", async (c) => {
     const config = await c.req.json<AppConfig>();
-    const [kimai, github, jira] = await Promise.all([
+    const figmaConfig = config.figma?.token ? config.figma : null;
+    const [kimai, github, jira, figma] = await Promise.all([
       deps.testKimaiConnection(config.kimai),
       deps.testGithubConnection(config.github),
       deps.testJiraConnection(config.jira),
+      figmaConfig ? deps.testFigmaConnection(figmaConfig) : Promise.resolve(null),
     ]);
 
     let githubWarning: string | null = null;
@@ -41,7 +44,7 @@ export function createSettingsRoutes(deps: SettingsDeps) {
       }
     }
 
-    return c.json({ kimai, github, githubWarning, jira });
+    return c.json({ kimai, github, githubWarning, jira, ...(figma === null ? {} : { figma }) });
   });
 
   return routes;

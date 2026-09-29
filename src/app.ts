@@ -16,7 +16,7 @@ import {
 } from "./clients/kimaiClient";
 import { testGithubConnection, fetchGithubTokenScopes, fetchGithubActivity } from "./clients/githubClient";
 import { testJiraConnection, fetchJiraActivity } from "./clients/jiraClient";
-import { fetchFigmaActivity } from "./clients/figmaClient";
+import { testFigmaConnection, fetchFigmaActivity } from "./clients/figmaClient";
 
 export function createApp() {
   const app = new Hono();
@@ -30,6 +30,7 @@ export function createApp() {
       testGithubConnection,
       fetchGithubTokenScopes,
       testJiraConnection,
+      testFigmaConnection,
     })
   );
   app.route(

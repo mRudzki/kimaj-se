@@ -10,23 +10,40 @@ const EMPTY_CONFIG: AppConfig = {
 
 export function SettingsPage({ onSaved }: { onSaved: () => void }) {
   const [config, setConfig] = useState<AppConfig>(EMPTY_CONFIG);
-  const [status, setStatus] = useState<{ kimai: boolean; github: boolean; githubWarning: string | null; jira: boolean } | null>(
-    null
-  );
+  const [status, setStatus] = useState<{
+    kimai: boolean;
+    github: boolean;
+    githubWarning: string | null;
+    jira: boolean;
+    figma?: boolean;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [figmaToken, setFigmaToken] = useState("");
+  const [figmaTeams, setFigmaTeams] = useState(""); // comma-separated team ids, parsed on save/test
 
   useEffect(() => {
-    api.getConfig().then((c) => c && setConfig(c));
+    api.getConfig().then((c) => {
+      if (!c) return;
+      setConfig(c);
+      setFigmaToken(c.figma?.token ?? "");
+      setFigmaTeams((c.figma?.teamIds ?? []).join(", "));
+    });
   }, []);
 
+  function currentConfig(): AppConfig {
+    const { figma: _previous, ...rest } = config;
+    const teamIds = figmaTeams.split(",").map((s) => s.trim()).filter(Boolean);
+    return figmaToken.trim() ? { ...rest, figma: { token: figmaToken.trim(), teamIds } } : rest;
+  }
+
   async function handleTest() {
-    setStatus(await api.testConnections(config));
+    setStatus(await api.testConnections(currentConfig()));
   }
 
   async function handleSave() {
     setSaving(true);
     try {
-      await api.saveConfig(config);
+      await api.saveConfig(currentConfig());
       onSaved();
     } finally {
       setSaving(false);
@@ -113,6 +130,31 @@ export function SettingsPage({ onSaved }: { onSaved: () => void }) {
           />
           <p className="hint">
             Atlassian -&gt; Account settings -&gt; Security -&gt; API tokens -&gt; Create API token.
+          </p>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Figma (opcjonalnie)</legend>
+        <div className="field">
+          <label>
+            Personal access token{" "}
+            {status?.figma !== undefined && (
+              <span className={status.figma ? "status-ok" : "status-fail"}>{status.figma ? "OK" : "Blad"}</span>
+            )}
+          </label>
+          <input placeholder="figd_..." value={figmaToken} onChange={(e) => setFigmaToken(e.target.value)} />
+          <p className="hint">
+            Figma -&gt; Settings -&gt; Security -&gt; Personal access tokens. Wymagane zakresy: file_content:read,
+            file_versions:read, file_comments:read, projects:read. Zostaw puste, zeby pominac Figme.
+          </p>
+        </div>
+        <div className="field">
+          <label>Team ID</label>
+          <input placeholder="123456789012345678" value={figmaTeams} onChange={(e) => setFigmaTeams(e.target.value)} />
+          <p className="hint">
+            Numer z adresu teamu: figma.com/files/team/<strong>ID</strong>/... Kilka teamow oddziel przecinkami.
+            Figma nie udostepnia listy teamow przez API, wiec trzeba je wpisac recznie.
           </p>
         </div>
       </fieldset>
